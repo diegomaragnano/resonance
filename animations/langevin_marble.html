@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Langevin marble in a double well</title>
+<style>
+:root{
+  --bg:#fafaf7; --fg:#1d1d1b; --muted:#6b6b66; --line:#d9d8d2; --panel:#ffffff;
+  --curve:#2b2b28; --marble:#d9480f; --trail:217,72,15; --bars:#4c78c9; --exact:#c92a2a;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#161614; --fg:#ecebe6; --muted:#9a9990; --line:#3a3935; --panel:#1f1f1c;
+    --curve:#e8e7e1; --marble:#ff8a4c; --trail:255,138,76; --bars:#6c95e0; --exact:#ff6b6b;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#161614; --fg:#ecebe6; --muted:#9a9990; --line:#3a3935; --panel:#1f1f1c;
+  --curve:#e8e7e1; --marble:#ff8a4c; --trail:255,138,76; --bars:#6c95e0; --exact:#ff6b6b;
+  color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:1.2rem;margin:0 0 2px}
+p.sub{margin:0 0 12px;color:var(--muted);font-size:.9rem}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:12px}
+canvas{display:block;width:100%;border-radius:6px}
+#pot{height:350px} #traj{height:170px} #hist{height:180px}
+.controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 18px}
+label{display:flex;justify-content:space-between;font-size:.9rem}
+label b{font-variant-numeric:tabular-nums}
+input[type=range]{width:100%}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px}
+button{font:inherit;padding:6px 14px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+button:hover{border-color:var(--muted)}
+.stats{margin-left:auto;color:var(--muted);font-size:.9rem;font-variant-numeric:tabular-nums}
+.legend{font-size:.8rem;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin:0 4px 0 10px;vertical-align:baseline}
+</style>
+</head>
+<body>
+<main>
+  <h1>Langevin marble in a double well</h1>
+  <p class="sub">dx = x(a − x²) dt + ε dW &nbsp;·&nbsp; potential V(x) = −a x²/2 + x⁴/4</p>
+
+  <div class="card"><canvas id="pot"></canvas></div>
+
+  <div class="card">
+    <canvas id="traj"></canvas>
+    <div class="legend">live trajectory x(t), last 100 time units; colour bands (optional) show which bulb is lit; dashed lines mark the well bottoms ±√a</div>
+  </div>
+
+  <div class="card">
+    <div class="controls">
+      <div><label>a <b id="aV">1.00</b></label><input id="a" type="range" min="-2" max="3" step="0.05" value="1"></div>
+      <div><label>ε (noise) <b id="eV">0.40</b></label><input id="e" type="range" min="0.05" max="1.5" step="0.05" value="0.4"></div>
+      <div><label>speed <b id="sV">8</b></label><input id="s" type="range" min="1" max="40" step="1" value="8"></div>
+    </div>
+    <div class="row">
+      <button id="pause">Pause</button>
+      <button id="reset">Reset marble</button>
+      <button id="clear">Clear histogram</button>
+      <label style="gap:6px;align-items:center"><input id="trail" type="checkbox" checked> trail</label>
+      <label style="gap:6px;align-items:center"><input id="bands" type="checkbox" checked> colour bands in x(t)</label>
+      <span class="stats" id="stats"></span>
+    </div>
+  </div>
+
+  <div class="card">
+    <canvas id="hist"></canvas>
+    <div class="legend"><i style="background:var(--bars)"></i>time spent by the marble (histogram)<i style="background:var(--exact)"></i>exact stationary density ∝ exp(−2V/ε²)</div>
+  </div>
+</main>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const pot = $('pot'), hist = $('hist'), traj = $('traj');
+  const XMIN=-2.2, XMAX=2.2, YMIN=-2.6, YMAX=3.2, DT=0.01, NB=70, HMIN=-2.5, HMAX=2.5;
+  let a=1, eps=0.4, speed=8, paused=false, showTrail=true, showBands=true;
+  const Lb=[0,0];
+  const lampCol=s=>{const r=document.documentElement,d=r.dataset.theme==='dark'||(r.dataset.theme!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);return s<0?(d?'#6c95e0':'#3b6fd1'):(d?'#ffc53d':'#e8a317');};
+  const WIN=100, SAMPLE=10;
+  let x=0, t=0, jumps=0, side=0, counts=new Float64Array(NB), total=0, trail=[], hx=[], ht=[], hs=[], sc=0;
+
+  const V = (y,aa) => -aa*y*y/2 + y*y*y*y/4;
+  const randn = () => { let u=0,v=0; while(!u)u=Math.random(); v=Math.random(); return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); };
+
+  function css(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+  function fit(c){
+    const r=c.getBoundingClientRect(), d=window.devicePixelRatio||1;
+    if(c.width!==Math.round(r.width*d)||c.height!==Math.round(r.height*d)){c.width=Math.round(r.width*d);c.height=Math.round(r.height*d);}
+    const g=c.getContext('2d'); g.setTransform(d,0,0,d,0,0); return {g,w:r.width,h:r.height};
+  }
+
+  function clearHist(){ counts.fill(0); total=0; }
+  function resetMarble(){ x=0; t=0; jumps=0; side=0; trail=[]; hx=[]; ht=[]; hs=[]; sc=0; clearHist(); }
+
+  function step(){
+    for(let i=0;i<speed;i++){
+      x += x*(a-x*x)*DT + eps*Math.sqrt(DT)*randn();
+      t += DT;
+      if(++sc%SAMPLE===0){ hx.push(x); ht.push(t); hs.push(a>0?side:0); }
+      const k=Math.floor((x-HMIN)/(HMAX-HMIN)*NB);
+      if(k>=0&&k<NB){counts[k]++; total++;}
+      if(a>0){ const th=0.5*Math.sqrt(a); const s = x>th?1:(x<-th?-1:side); if(side!==0&&s!==side)jumps++; side=s; }
+    }
+    while(ht.length && ht[0] < t-WIN){ ht.shift(); hx.shift(); hs.shift(); }
+    if(showTrail){ trail.push(x); if(trail.length>120)trail.shift(); } else trail.length=0;
+  }
+
+  function drawPot(){
+    const {g,w,h}=fit(pot);
+    const hp = h-48;  // bottom strip reserved for the bulbs
+    const X = v => (v-XMIN)/(XMAX-XMIN)*w, Y = v => hp-(v-YMIN)/(YMAX-YMIN)*hp;
+    g.clearRect(0,0,w,h);
+    // axis baseline V=0 and x=0
+    g.strokeStyle=css('--line'); g.lineWidth=1; g.setLineDash([4,4]);
+    g.beginPath(); g.moveTo(0,Y(0)); g.lineTo(w,Y(0)); g.moveTo(X(0),0); g.lineTo(X(0),h); g.stroke(); g.setLineDash([]);
+    // potential curve
+    g.strokeStyle=css('--curve'); g.lineWidth=2.5; g.beginPath();
+    for(let px=0;px<=w;px+=2){ const xx=XMIN+px/w*(XMAX-XMIN); const yy=Y(V(xx,a)); px?g.lineTo(px,yy):g.moveTo(px,yy); }
+    g.stroke();
+    // trail
+    const R=9, xc=Math.max(XMIN,Math.min(XMAX,x));
+    const tr=css('--trail').replace(/\s/g,'');
+    for(let i=0;i<trail.length;i++){
+      const xx=Math.max(XMIN,Math.min(XMAX,trail[i]));
+      g.fillStyle=`rgba(${tr},${(i/trail.length)*0.35})`;
+      g.beginPath(); g.arc(X(xx),Y(V(xx,a))-R,R*0.6,0,6.2832); g.fill();
+    }
+    // marble sitting on the curve
+    g.fillStyle=css('--marble'); g.beginPath(); g.arc(X(xc),Y(V(xc,a))-R,R,0,6.2832); g.fill();
+    g.fillStyle='rgba(255,255,255,.55)'; g.beginPath(); g.arc(X(xc)-3,Y(V(xc,a))-R-3,R*0.3,0,6.2832); g.fill();
+    // labels
+    g.fillStyle=css('--muted'); g.font='12px system-ui,sans-serif';
+    g.fillText('V(x)',8,16);
+    // bulbs: one under each well bottom; lit while the marble is in that well (hysteresis at +-sqrt(a)/2)
+    const bulbs = a>0 ? [-1,1] : [0];
+    bulbs.forEach((sg,k)=>{
+      const target = a>0 ? (side===sg?1:0) : 1;
+      Lb[k] += (target-Lb[k])*0.18;
+      const b=Lb[k], cx=X(sg*Math.sqrt(a)), cy=hp+24, col=lampCol(sg);
+      for(const r of [32,24,17]){ g.globalAlpha=0.14*b; g.fillStyle=col; g.beginPath(); g.arc(cx,cy,r,0,6.2832); g.fill(); }
+      g.globalAlpha=0.12+0.88*b; g.fillStyle=col; g.beginPath(); g.arc(cx,cy,11,0,6.2832); g.fill(); g.globalAlpha=1;
+      g.strokeStyle=css('--curve'); g.lineWidth=1.5; g.beginPath(); g.arc(cx,cy,11,0,6.2832); g.stroke();
+      g.fillStyle=css('--curve'); g.fillRect(cx-5,cy+11,10,5);
+    });
+    if(a>0){ g.fillText(`wells at ±√a = ±${Math.sqrt(a).toFixed(2)},  barrier ΔV = a²/4 = ${(a*a/4).toFixed(2)}`,8,hp-8); }
+    else { g.fillText('single well at x = 0',8,hp-8); }
+    g.textAlign='right'; g.fillText('x',w-8,Y(0)-6); g.textAlign='left';
+  }
+
+  function drawTraj(){
+    const {g,w,h}=fit(traj); g.clearRect(0,0,w,h);
+    const padB=20, H=h-padB, YR=2.4;
+    const tEnd=Math.max(t,WIN), tStart=tEnd-WIN;
+    const X=tt=>(tt-tStart)/WIN*w, Y=v=>H/2-Math.max(-YR,Math.min(YR,v))/YR*H/2;
+    if(showBands && a>0 && ht.length>1){
+      let i0=0;
+      for(let i=1;i<=ht.length;i++){
+        if(i===ht.length || hs[i]!==hs[i0]){
+          if(hs[i0]!==0){
+            const te = i===ht.length ? t : ht[i];
+            g.globalAlpha=0.18; g.fillStyle=lampCol(hs[i0]); g.fillRect(X(ht[i0]),0,X(te)-X(ht[i0]),H); g.globalAlpha=1;
+          }
+          i0=i;
+        }
+      }
+    }
+    g.strokeStyle=css('--line'); g.lineWidth=1; g.setLineDash([4,4]);
+    g.beginPath(); g.moveTo(0,Y(0)); g.lineTo(w,Y(0)); g.stroke();
+    if(a>0){ const r=Math.sqrt(a); g.strokeStyle=css('--muted'); g.beginPath();
+      g.moveTo(0,Y(r)); g.lineTo(w,Y(r)); g.moveTo(0,Y(-r)); g.lineTo(w,Y(-r)); g.stroke(); }
+    g.setLineDash([]);
+    g.strokeStyle=css('--marble'); g.lineWidth=1.5; g.beginPath();
+    for(let i=0;i<ht.length;i++){ const px=X(ht[i]), py=Y(hx[i]); i?g.lineTo(px,py):g.moveTo(px,py); }
+    g.lineTo(X(t),Y(x)); g.stroke();
+    g.fillStyle=css('--muted'); g.font='12px system-ui,sans-serif';
+    g.fillText('x(t)',8,14);
+    for(let k=Math.ceil(tStart/20)*20;k<=tEnd;k+=20){ g.fillText(k,X(k)-6,h-5); }
+    g.textAlign='right'; g.fillText('t',w-8,h-5); g.textAlign='left';
+  }
+
+  function exactPdf(){
+    const N=400, xs=[], ps=[]; let Z=0; const dx=(HMAX-HMIN)/(N-1);
+    for(let i=0;i<N;i++){ const xx=HMIN+i*dx; const p=Math.exp(-2*V(xx,a)/(eps*eps)); xs.push(xx); ps.push(p); }
+    // normalise over the window [HMIN,HMAX] (tails beyond are negligible except at very large eps)
+    for(let i=0;i<N;i++) Z+=ps[i]*dx;
+    return {xs,ps:ps.map(p=>p/Z)};
+  }
+
+  function drawHist(){
+    const {g,w,h}=fit(hist); g.clearRect(0,0,w,h);
+    const pad=22, W=w, H=h-pad; const bw=(HMAX-HMIN)/NB;
+    const ex=exactPdf();
+    let ymax=Math.max(...ex.ps);
+    const dens = Array.from(counts, c => total? c/(total*bw):0);
+    ymax=Math.max(ymax, ...dens)*1.1;
+    const X=v=>(v-HMIN)/(HMAX-HMIN)*W, Y=v=>H-v/ymax*H;
+    g.fillStyle=css('--bars'); g.globalAlpha=.6;
+    for(let i=0;i<NB;i++){ const x0=X(HMIN+i*bw), x1=X(HMIN+(i+1)*bw); g.fillRect(x0,Y(dens[i]),x1-x0-1,H-Y(dens[i])); }
+    g.globalAlpha=1;
+    g.strokeStyle=css('--exact'); g.lineWidth=2; g.beginPath();
+    ex.xs.forEach((xx,i)=>{ const px=X(xx),py=Y(ex.ps[i]); i?g.lineTo(px,py):g.moveTo(px,py); }); g.stroke();
+    g.strokeStyle=css('--line'); g.beginPath(); g.moveTo(0,H); g.lineTo(W,H); g.stroke();
+    g.fillStyle=css('--muted'); g.font='12px system-ui,sans-serif';
+    for(let v=-2;v<=2;v++){ g.fillText(v,X(v)-3,h-6); }
+    g.fillText('density',8,14);
+  }
+
+  function updateStats(){
+    $('stats').textContent = `t = ${t.toFixed(1)}   x = ${x.toFixed(2)}` + (a>0?`   jumps = ${jumps}`:'');
+  }
+
+  function frame(){
+    if(!paused) step();
+    drawPot(); drawTraj(); drawHist(); updateStats();
+    requestAnimationFrame(frame);
+  }
+
+  // controls
+  $('a').addEventListener('input',e=>{ a=+e.target.value; $('aV').textContent=a.toFixed(2); clearHist(); jumps=0; side=0; });
+  $('e').addEventListener('input',e=>{ eps=+e.target.value; $('eV').textContent=eps.toFixed(2); clearHist(); jumps=0; });
+  $('s').addEventListener('input',e=>{ speed=+e.target.value; $('sV').textContent=speed; });
+  $('trail').addEventListener('change',e=>{ showTrail=e.target.checked; });
+  $('bands').addEventListener('change',e=>{ showBands=e.target.checked; });
+  $('pause').addEventListener('click',e=>{ paused=!paused; e.target.textContent=paused?'Resume':'Pause'; });
+  $('reset').addEventListener('click',resetMarble);
+  $('clear').addEventListener('click',()=>{ clearHist(); jumps=0; });
+
+  frame();
+})();
+</script>
+</body>
+</html>

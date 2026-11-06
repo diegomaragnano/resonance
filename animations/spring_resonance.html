@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Forced undamped spring-mass system</title>
+<style>
+:root{
+  --bg:#eef1f4; --panel:#fbfcfd; --ink:#1b2430; --mute:#586675; --line:#c9d1da;
+  --trace:#0b7a8a; --drive:#b8650a; --grid:#dfe5ea; --spring:#5f6e7e; --env:#8a4fbf;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#11161c; --panel:#171e26; --ink:#e6ebf0; --mute:#9aa8b6; --line:#34404c;
+    --trace:#4cc4d4; --drive:#f0a540; --grid:#232d38; --spring:#9fb0c1; --env:#c39bf0;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#11161c; --panel:#171e26; --ink:#e6ebf0; --mute:#9aa8b6; --line:#34404c;
+  --trace:#4cc4d4; --drive:#f0a540; --grid:#232d38; --spring:#9fb0c1; --env:#c39bf0;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 28px}
+h1{font:600 26px/1.2 Georgia,"Iowan Old Style",serif;margin:0 0 8px;letter-spacing:-.01em}
+.eq{margin:0 0 14px;display:flex;flex-wrap:wrap;gap:4px 18px;align-items:baseline;color:var(--mute);font-size:14px}
+.eq b{font:italic 600 18px Georgia,"Iowan Old Style",serif;color:var(--ink)}
+.grid{display:grid;grid-template-columns:minmax(280px,5fr) minmax(0,7fr);gap:14px}
+@media (max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;position:relative;overflow:hidden}
+canvas{display:block;width:100%;height:440px}
+@media (max-width:760px){canvas{height:400px}}
+#cph{height:360px}
+.note{position:absolute;left:12px;bottom:8px;font-size:12px;color:var(--mute);margin:0;max-width:92%}
+#msg{position:absolute;left:62px;right:20px;top:48px;padding:8px 12px;border-left:3px solid var(--drive);background:var(--panel);font-size:14px;display:none}
+.ctrl{display:flex;flex-wrap:wrap;gap:12px 22px;align-items:center;margin-top:14px;padding:12px 14px}
+.ctrl label{display:flex;align-items:center;gap:8px;font-size:14px}
+.ctrl output{min-width:3.6em;font-variant-numeric:tabular-nums;color:var(--mute)}
+input[type=range]{width:150px;accent-color:var(--trace)}
+button,select{font:inherit;font-size:14px;padding:6px 14px;border-radius:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+select{padding:5px 8px}
+button.primary{background:var(--trace);border-color:var(--trace);color:#fff}
+:root[data-theme="dark"] button.primary{color:#06242a}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) button.primary{color:#06242a}}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--drive);outline-offset:2px}
+.status{margin:12px 2px 0;font-size:14px;color:var(--mute)}
+</style>
+</head>
+<body>
+<main>
+  <h1>A forced spring-mass system with no damping</h1>
+  <p class="eq"><b>m ẍ + k x = F₀ cos(ωt)</b><span>m = 1 kg · k = 4 N/m · ω₀ = √(k/m) = 2 rad/s · x(0) = 0, ẋ(0) = 0</span></p>
+  <div class="grid">
+    <div class="card"><canvas id="cs" role="img" aria-label="Animation of a mass hanging from a spring attached to an oscillating support"></canvas><p class="note">Support motion is exaggerated. The mass follows the scale bar, which zooms out as the amplitude grows.</p></div>
+    <div class="card"><canvas id="cp" role="img" aria-label="Plot of the mass position in metres against time in seconds"></canvas><div id="msg" aria-live="polite"></div></div>
+  </div>
+  <div class="card" id="phcard" style="display:none;margin-top:14px"><canvas id="cph" role="img" aria-label="Phase portrait of the mass velocity against its position"></canvas></div>
+  <div class="card ctrl">
+    <button id="play" class="primary">Pause</button>
+    <button id="restart">Restart</button>
+    <label>Speed <select id="spd"><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></label>
+    <label>ω/ω₀ <input id="ratio" type="range" min="0.5" max="1.5" step="0.01" value="1"><output id="ratioO">1.00</output></label>
+    <label>F₀ <input id="amp" type="range" min="0.2" max="1.2" step="0.05" value="0.4"><output id="ampO">0.40 N</output></label>
+    <label><input id="env" type="checkbox" checked> Envelope</label>
+    <label><input id="sup" type="checkbox"> Support motion y(t)</label>
+    <label><input id="ph" type="checkbox"> Phase portrait x–ẋ</label>
+    <label><input id="auto" type="checkbox"> Auto-restart</label>
+  </div>
+  <p id="status" class="status"></p>
+</main>
+<script>
+(function(){
+  var W0 = 2, K = 4, T = 30, SUP_PX = 100, TM = 40, BM = 34;
+  var $ = function(id){return document.getElementById(id)};
+  var cs = $('cs'), cp = $('cp'), gs = cs.getContext('2d'), gp = cp.getContext('2d'), cph = $('cph'), gph = cph.getContext('2d');
+  var t = 0, running = true, ended = false, last = null, endAt = 0, dirty = true, speed = 1;
+  var ratio = 1, A = 0.1, ym = 1, vm = 1, rangeT = 0.5, rangeD = 0.5, tmr, C = {};
+
+  function isRes(){ return Math.abs(ratio - 1) < 0.005; }
+  function xAt(s){
+    var w = ratio * W0;
+    if (isRes()) return W0 * A * s / 2 * Math.sin(W0 * s);
+    return W0*W0*A/(W0*W0 - w*w) * (Math.cos(w*s) - Math.cos(W0*s));
+  }
+  function xdAt(s){
+    var w = ratio * W0;
+    if (isRes()) return W0 * A / 2 * (Math.sin(W0*s) + W0*s*Math.cos(W0*s));
+    return W0*W0*A/(W0*W0 - w*w) * (W0*Math.sin(W0*s) - w*Math.sin(w*s));
+  }
+  function envAt(s){
+    var w = ratio * W0;
+    if (isRes()) return W0 * A * s / 2;
+    return Math.abs(2*W0*W0*A/(W0*W0 - w*w) * Math.sin((W0 - w)*s/2));
+  }
+  function refreshColors(){
+    var cs2 = getComputedStyle(document.documentElement);
+    ['ink','mute','trace','drive','grid','spring','env','panel','line'].forEach(function(n){ C[n] = cs2.getPropertyValue('--'+n).trim(); });
+    dirty = true;
+  }
+  function fit(c, g){
+    var d = window.devicePixelRatio || 1, w = c.clientWidth, h = c.clientHeight;
+    if (c.width !== Math.round(w*d) || c.height !== Math.round(h*d)){ c.width = Math.round(w*d); c.height = Math.round(h*d); }
+    g.setTransform(d,0,0,d,0,0);
+    return [w,h];
+  }
+  function fmt(v){ return String(+v.toPrecision(2)); }
+
+  function drawSystem(){
+    var s = fit(cs, gs), w = s[0], h = s[1], g = gs;
+    g.clearRect(0,0,w,h); g.textAlign = 'left';
+    var xc = Math.max(120, w*0.4), Cx = xc + 90, Cy = 68, th = ratio*W0*t;
+    var r = A * SUP_PX, R = r + 8;
+    g.strokeStyle = C.ink; g.lineWidth = 2; g.beginPath(); g.moveTo(10,22); g.lineTo(w-10,22); g.stroke();
+    g.strokeStyle = C.mute; g.lineWidth = 1; g.beginPath();
+    for (var i = 10; i < w-10; i += 10){ g.moveTo(i,22); g.lineTo(i-6,14); }
+    g.stroke();
+    g.strokeStyle = C.mute; g.lineWidth = 3; g.beginPath(); g.moveTo(Cx,22); g.lineTo(Cx,Cy); g.stroke();
+    g.fillStyle = C.panel; g.strokeStyle = C.drive; g.lineWidth = 2;
+    g.beginPath(); g.arc(Cx,Cy,R,0,6.2832); g.fill(); g.stroke();
+    g.fillStyle = C.drive; g.beginPath(); g.arc(Cx,Cy,3,0,6.2832); g.fill();
+    var px = Cx + r*Math.sin(th), py = Cy - r*Math.cos(th);
+    g.lineWidth = 1; g.setLineDash([3,3]); g.beginPath(); g.moveTo(Cx,Cy); g.lineTo(px,py); g.stroke(); g.setLineDash([]);
+    g.fillStyle = C.drive; g.fillRect(xc - 60, py-4, Cx + R + 6 - (xc - 60), 8);
+    g.fillStyle = C.panel; g.beginPath(); g.arc(px,py,4,0,6.2832); g.fill();
+    var sx = xc - 30, yEq = TM + (h - TM - BM)/2;
+    var MAXPX = Math.max(20, Math.min(110, yEq - 22 - (Cy + 0.3*SUP_PX + 4) - 24));
+    var ppm = MAXPX / rangeD;
+    g.strokeStyle = C.line; g.setLineDash([4,4]); g.beginPath(); g.moveTo(20,yEq); g.lineTo(w-20,yEq); g.stroke(); g.setLineDash([]);
+    g.fillStyle = C.mute; g.font = '12px system-ui,sans-serif';
+    g.textAlign = 'right'; g.fillText('equilibrium', w-22, yEq-6); g.textAlign = 'left';
+    // scale bar
+    var Ls = rangeT/2, bh = Ls*ppm;
+    g.strokeStyle = C.mute; g.lineWidth = 1.5; g.beginPath();
+    g.moveTo(26,yEq-bh); g.lineTo(26,yEq); g.moveTo(21,yEq-bh); g.lineTo(31,yEq-bh); g.moveTo(21,yEq); g.lineTo(31,yEq); g.stroke();
+    g.fillStyle = C.mute; g.fillText(fmt(Ls) + ' m', 14, yEq-bh-8);
+    var xm = xAt(t), off = Math.max(-MAXPX, Math.min(MAXPX, xm*ppm)), top = yEq - off - 22, ys = py + 4, n = 14, amp = 13;
+    g.strokeStyle = C.spring; g.lineWidth = 2.2; g.lineJoin = 'round'; g.beginPath(); g.moveTo(sx, ys);
+    var seg = (top - ys) / (n + 1);
+    g.lineTo(sx, ys + seg*0.5);
+    for (var k = 1; k <= n; k++) g.lineTo(sx + (k%2 ? amp : -amp), ys + seg*(k+0.5));
+    g.lineTo(sx, top); g.stroke();
+    g.fillStyle = C.trace; g.fillRect(sx-30, top, 60, 44);
+    var lab = 'driven support A cos(ωt), A = F₀/k'; g.fillStyle = C.drive; g.font = '12px system-ui,sans-serif';
+    g.fillText(lab, Math.min(Cx - 40, w - 10 - g.measureText(lab).width), Cy + R + 22);
+  }
+
+  function nice(range){
+    var raw = range/4, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw/p;
+    return (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10) * p;
+  }
+
+  function drawPlot(){
+    var s = fit(cp, gp), w = s[0], h = s[1], g = gp, L = 56, Rm = 16, pw = w-L-Rm, ph = h-TM-BM;
+    g.clearRect(0,0,w,h); g.lineWidth = 1; g.textAlign = 'right';
+    var N = 400, step = nice(2*ym), dec = Math.max(0, -Math.floor(Math.log10(step)+1e-9));
+    var X = function(s2){return L + pw*s2/T}, Y = function(v){return TM + ph*(0.5 - v/(2*ym))};
+    g.font = '12px system-ui,sans-serif';
+    for (var v = -Math.floor(ym/step)*step; v <= ym+1e-9; v += step){
+      g.strokeStyle = Math.abs(v) < step*1e-6 ? C.mute : C.grid; g.beginPath(); g.moveTo(L,Y(v)); g.lineTo(L+pw,Y(v)); g.stroke();
+      g.fillStyle = C.mute; g.fillText(v.toFixed(dec), L-6, Y(v)+4);
+    }
+    g.textAlign = 'center';
+    for (var k = 0; k <= T; k += 5){
+      g.strokeStyle = C.grid; g.beginPath(); g.moveTo(X(k),TM); g.lineTo(X(k),TM+ph); g.stroke();
+      g.fillStyle = C.mute; g.fillText(k, X(k), TM+ph+16);
+    }
+    g.fillText('t (s)', L+pw/2, h-4);
+    g.save(); g.translate(13, TM+ph/2); g.rotate(-Math.PI/2); g.fillText('x (m)', 0, 0); g.restore();
+    var showEnv = $('env').checked, showSup = $('sup').checked, w1 = ratio*W0;
+    g.save(); g.beginPath(); g.rect(L,TM,pw,ph); g.clip(); g.lineJoin = 'round';
+    function path(f, sg){ g.beginPath(); for (var i = 0; i <= N; i++){ var s2 = t*i/N, yv = sg*f(s2); i ? g.lineTo(X(s2),Y(yv)) : g.moveTo(X(s2),Y(yv)); } g.stroke(); }
+    if (showSup){ g.strokeStyle = C.drive; g.lineWidth = 1.2; path(function(s2){return A*Math.cos(w1*s2)}, 1); }
+    if (showEnv){ g.strokeStyle = C.env; g.lineWidth = 1.5; g.setLineDash([6,4]); path(envAt,1); path(envAt,-1); g.setLineDash([]); }
+    g.strokeStyle = C.trace; g.lineWidth = 2; path(xAt, 1);
+    g.fillStyle = C.trace; g.beginPath(); g.arc(X(t),Y(xAt(t)),4,0,6.2832); g.fill();
+    g.restore();
+    // legend
+    g.textAlign = 'left'; g.fillStyle = C.ink; g.font = '600 14px system-ui,sans-serif';
+    g.fillText('t = ' + t.toFixed(1) + ' s', L, 24);
+    g.font = '13px system-ui,sans-serif';
+    var lx = L + 86, items = [['x(t) mass', C.trace, 0]];
+    if (showSup) items.push(['y(t) support', C.drive, 0]);
+    if (showEnv) items.push(['envelope', C.env, 1]);
+    items.forEach(function(it){
+      g.strokeStyle = it[1]; g.lineWidth = 2; g.setLineDash(it[2] ? [5,3] : []);
+      g.beginPath(); g.moveTo(lx,20); g.lineTo(lx+18,20); g.stroke(); g.setLineDash([]);
+      g.fillStyle = C.mute; g.fillText(it[0], lx+23, 24); lx += 23 + g.measureText(it[0]).width + 16;
+    });
+  }
+
+  function drawPhase(){
+    var s = fit(cph, gph), w = s[0], h = s[1], g = gph, Tp = 36, Bp = 36, S = Math.min(w - 120, h - Tp - Bp), L = (w - S)/2;
+    g.clearRect(0,0,w,h); g.lineWidth = 1; g.font = '12px system-ui,sans-serif';
+    var X = function(v){return L + S*(0.5 + v/(2*ym))}, Y = function(v){return Tp + S*(0.5 - v/(2*vm))};
+    var sx = nice(2*ym), sv = nice(2*vm), dx = Math.max(0, -Math.floor(Math.log10(sx)+1e-9)), dv = Math.max(0, -Math.floor(Math.log10(sv)+1e-9)), v;
+    g.textAlign = 'center';
+    for (v = -Math.floor(ym/sx)*sx; v <= ym+1e-9; v += sx){
+      g.strokeStyle = Math.abs(v) < sx*1e-6 ? C.mute : C.grid; g.beginPath(); g.moveTo(X(v),Tp); g.lineTo(X(v),Tp+S); g.stroke();
+      g.fillStyle = C.mute; g.fillText(v.toFixed(dx), X(v), Tp+S+15);
+    }
+    g.textAlign = 'right';
+    for (v = -Math.floor(vm/sv)*sv; v <= vm+1e-9; v += sv){
+      g.strokeStyle = Math.abs(v) < sv*1e-6 ? C.mute : C.grid; g.beginPath(); g.moveTo(L,Y(v)); g.lineTo(L+S,Y(v)); g.stroke();
+      g.fillStyle = C.mute; g.fillText(v.toFixed(dv), L-6, Y(v)+4);
+    }
+    g.textAlign = 'center'; g.fillStyle = C.mute;
+    g.fillText('x (m)', L+S/2, h-6);
+    g.save(); g.translate(L-46, Tp+S/2); g.rotate(-Math.PI/2); g.fillText('ẋ (m/s)', 0, 0); g.restore();
+    g.save(); g.beginPath(); g.rect(L,Tp,S,S); g.clip();
+    g.strokeStyle = C.trace; g.lineWidth = 2; g.lineJoin = 'round'; g.beginPath();
+    for (var i = 0; i <= 600; i++){ var s2 = t*i/600; i ? g.lineTo(X(xAt(s2)),Y(xdAt(s2))) : g.moveTo(X(xAt(s2)),Y(xdAt(s2))); }
+    g.stroke();
+    g.fillStyle = C.trace; g.beginPath(); g.arc(X(xAt(t)),Y(xdAt(t)),4,0,6.2832); g.fill();
+    g.restore();
+    g.textAlign = 'left'; g.fillStyle = C.ink; g.font = '600 14px system-ui,sans-serif';
+    g.fillText('Phase portrait: ẋ vs x', 14, 22);
+  }
+
+  function setRange(){
+    var m = 0; for (var i = 0; i <= 600; i++){ var e = envAt(T*i/600); if (e > m) m = e; }
+    if ($('sup').checked) m = Math.max(m, A);
+    ym = 1.1*m;
+    var vx = 0; for (var j = 0; j <= 600; j++){ var vv = Math.abs(xdAt(T*j/600)); if (vv > vx) vx = vv; }
+    vm = Math.max(W0*ym, 1.05*vx);
+  }
+  function setStatus(){
+    var w = ratio*W0, s = 'ω = ' + w.toFixed(2) + ' rad/s · ';
+    s += isRes() ? 'resonance: amplitude grows linearly, reaching F₀T/(2mω₀) = ' + (W0*A*T/2).toFixed(1) + ' m at t = ' + T + ' s'
+      : 'beat period = ' + (2*Math.PI/Math.abs(W0-w)).toFixed(1) + ' s · max amplitude = ' + (2*W0*W0*A/Math.abs(W0*W0-w*w)).toFixed(2) + ' m';
+    $('status').textContent = s;
+  }
+  function showMsg(){
+    var w = ratio*W0, tb = 2*Math.PI/Math.abs(W0-w), m = $('msg');
+    m.textContent = isRes()
+      ? 'Run stopped at ' + T + ' s. With no damping, the amplitude would keep growing indefinitely.'
+      : 'Run stopped at ' + T + ' s. Off resonance the amplitude stays bounded (max ' + (2*W0*W0*A/Math.abs(W0*W0-w*w)).toFixed(2) + ' m). Beat period: ' + tb.toFixed(1) + ' s' + (tb > T ? ', longer than this run.' : '.');
+    m.style.display = 'block';
+  }
+  function setPlayLabel(){ $('play').textContent = ended ? 'Play again' : running ? 'Pause' : 'Play'; }
+  function restart(){
+    t = 0; if (ended) running = true; ended = false; rangeT = rangeD = 0.5;
+    setRange(); setStatus(); $('msg').style.display = 'none'; setPlayLabel(); dirty = true;
+  }
+  function frame(ts){
+    if (last === null) last = ts;
+    var dt = Math.min(0.05, (ts-last)/1000); last = ts;
+    if (running){
+      t += dt*speed; dirty = true;
+      if (t >= T){ t = T; running = false; ended = true; endAt = ts; showMsg(); setPlayLabel(); }
+      while (Math.abs(xAt(t)) > 0.9*rangeT) rangeT *= 2;
+    }
+    if (Math.abs(rangeT - rangeD) > 0.002){ rangeD += (rangeT - rangeD)*0.15; dirty = true; } else rangeD = rangeT;
+    if (ended && $('auto').checked && ts - endAt > 2500) restart();
+    if (dirty){ dirty = false; drawSystem(); drawPlot(); if ($('ph').checked) drawPhase(); }
+    requestAnimationFrame(frame);
+  }
+  function toggle(){
+    if (ended){ restart(); return; }
+    running = !running; setPlayLabel();
+  }
+  function later(){ clearTimeout(tmr); tmr = setTimeout(restart, 100); }
+
+  $('play').onclick = toggle;
+  $('restart').onclick = restart;
+  $('spd').onchange = function(){ speed = +this.value; };
+  $('ratio').oninput = function(){ ratio = +this.value; $('ratioO').textContent = ratio.toFixed(2); later(); };
+  $('amp').oninput = function(){ A = +this.value / K; $('ampO').textContent = (+this.value).toFixed(2) + ' N'; later(); };
+  $('env').onchange = $('sup').onchange = function(){ setRange(); dirty = true; };
+  $('ph').onchange = function(){ $('phcard').style.display = this.checked ? 'block' : 'none'; dirty = true; };
+  document.addEventListener('keydown', function(e){
+    if (e.code === 'Space' && !/^(BUTTON|SELECT|INPUT|TEXTAREA)$/.test(e.target.tagName)){ e.preventDefault(); toggle(); }
+  });
+  var mq = matchMedia('(prefers-color-scheme: dark)');
+  (mq.addEventListener ? mq.addEventListener('change', refreshColors) : mq.addListener(refreshColors));
+  window.addEventListener('resize', function(){ dirty = true; });
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) running = false;
+  refreshColors(); setRange(); setStatus(); setPlayLabel();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

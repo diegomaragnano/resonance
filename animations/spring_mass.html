@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Free spring-mass system</title>
+<style>
+:root{
+  --bg:#f7f6f2; --panel:#ffffff; --text:#1f2328; --muted:#5f6670; --line:#d6d3ca;
+  --accent:#c2410c; --spring:#334155; --mass:#2563eb; --grid:#9a9a9a;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15171a; --panel:#1e2125; --text:#e8e6e1; --muted:#9aa1ab; --line:#3a3f46;
+    --accent:#fb923c; --spring:#cbd5e1; --mass:#60a5fa; --grid:#7a7f87; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15171a; --panel:#1e2125; --text:#e8e6e1; --muted:#9aa1ab; --line:#3a3f46;
+  --accent:#fb923c; --spring:#cbd5e1; --mass:#60a5fa; --grid:#7a7f87; color-scheme:dark;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1100px;margin:0 auto;padding:20px 16px 28px}
+h1{font-size:1.25rem;margin:0 0 4px}
+p.sub{margin:0 0 16px;color:var(--muted);font-size:.92rem}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.6fr);gap:14px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+canvas{display:block;width:100%;height:min(68vh,520px);min-height:380px}
+#sim{cursor:default;touch-action:none}
+.controls{margin-top:14px;display:flex;flex-direction:column;gap:14px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.row{display:flex;flex-wrap:wrap;gap:14px 24px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{border:0;border-radius:0;background:var(--bg);color:var(--muted);padding:8px 14px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-checked="true"]{background:var(--accent);color:#fff}
+.sliders{display:flex;flex-wrap:wrap;gap:14px 24px;width:100%}
+.slider{flex:1 1 240px;display:flex;flex-direction:column;gap:4px}
+.slider label{font-weight:600;display:flex;justify-content:space-between;gap:12px}
+.slider output{font-variant-numeric:tabular-nums;color:var(--accent)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.ticks{display:flex;justify-content:space-between;color:var(--muted);font-size:.78rem}
+button{font:inherit;font-weight:600;padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text);cursor:pointer}
+button:hover{border-color:var(--accent)}
+.info{color:var(--muted);font-size:.9rem;font-variant-numeric:tabular-nums}
+[hidden]{display:none!important}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:.92rem;cursor:pointer}
+input[type=checkbox]{accent-color:var(--accent)}
+.extras{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+canvas.small{height:300px;min-height:0}
+@media (max-width:760px){ .grid{grid-template-columns:1fr} canvas{height:min(56vh,440px);min-height:340px} }
+</style>
+</head>
+<body>
+<main>
+  <h1>Free spring-mass system</h1>
+  <p class="sub">Unforced and undamped: x(t) = x₀ cos(ω₀t), with ω₀ = 2πf₀. Drag the mass up or down to set the amplitude x₀ (x is positive upwards).</p>
+  <div class="grid">
+    <div class="panel"><canvas id="sim" aria-label="Spring-mass animation"></canvas></div>
+    <div class="panel"><canvas id="plot" aria-label="Position versus time"></canvas></div>
+  </div>
+  <div class="controls">
+    <div class="row">
+      <div class="seg" role="radiogroup" aria-label="Configuration">
+        <button type="button" role="radio" id="modeF" aria-checked="true">Set f₀ directly</button>
+        <button type="button" role="radio" id="modeK" aria-checked="false">Set k and m</button>
+      </div>
+      <button id="pp">Pause</button>
+      <button id="reset">Reset</button>
+      <div class="seg" role="radiogroup" aria-label="Time axis unit">
+        <button type="button" role="radio" id="uS" aria-checked="true">Time in s</button>
+        <button type="button" role="radio" id="uP" aria-checked="false">Time in periods</button>
+      </div>
+      <label class="chk"><input type="checkbox" id="showE"> Energy bars</label>
+      <label class="chk"><input type="checkbox" id="showP"> Phase portrait</label>
+    </div>
+    <div class="sliders" id="boxF">
+      <div class="slider">
+        <label for="f">Natural frequency f₀ <output id="fout"></output></label>
+        <input type="range" id="f" min="0.25" max="2" step="0.05" value="0.5">
+        <div class="ticks"><span>0.25 Hz</span><span>2 Hz</span></div>
+      </div>
+    </div>
+    <div class="sliders" id="boxK" hidden>
+      <div class="slider">
+        <label for="m">Mass m <output id="mout"></output></label>
+        <input type="range" id="m" min="0.5" max="2" step="0.1" value="1.5">
+        <div class="ticks"><span>0.5 kg</span><span>2 kg</span></div>
+      </div>
+      <div class="slider">
+        <label for="k">Spring constant k <output id="kout"></output></label>
+        <input type="range" id="k" min="10" max="75" step="1" value="15">
+        <div class="ticks"><span>10 N/m</span><span>75 N/m</span></div>
+      </div>
+    </div>
+    <div class="info" id="info"></div>
+  </div>
+<div class="extras" id="extras" hidden>
+    <div class="panel" id="panE" hidden><canvas id="enC" class="small" aria-label="Kinetic and potential energy"></canvas></div>
+    <div class="panel" id="panP" hidden><canvas id="phC" class="small" aria-label="Phase portrait"></canvas></div>
+  </div>
+</main>
+<script>
+(function(){
+  var sim=document.getElementById('sim'), plot=document.getElementById('plot');
+  var sc=sim.getContext('2d'), pc=plot.getContext('2d');
+  var enC=document.getElementById('enC'), phC=document.getElementById('phC');
+  var ec=enC.getContext('2d'), hc=phC.getContext('2d');
+  var showE=document.getElementById('showE'), showP=document.getElementById('showP');
+  var panE=document.getElementById('panE'), panP=document.getElementById('panP'), extras=document.getElementById('extras');
+  var uS=document.getElementById('uS'), uP=document.getElementById('uP');
+  var fIn=document.getElementById('f'), mIn=document.getElementById('m'), kIn=document.getElementById('k');
+  var fOut=document.getElementById('fout'), mOut=document.getElementById('mout'), kOut=document.getElementById('kout');
+  var info=document.getElementById('info'), pp=document.getElementById('pp');
+  var btnF=document.getElementById('modeF'), btnK=document.getElementById('modeK');
+  var boxF=document.getElementById('boxF'), boxK=document.getElementById('boxK');
+  var AMAX_FRAC=0.26, EQ_FRAC=0.58, WINDOW=8, NP=4;
+  var mode='f', f=parseFloat(fIn.value), omega=2*Math.PI*f;
+  var m=parseFloat(mIn.value), k=parseFloat(kIn.value);
+  var phase0=0, unit='s';
+  var x0=0.6, phase=0, t=0, running=true, dragging=false, dragX=0; // x in units of Amax
+  var hist=[], W=0,H=0, dpr=1, D={};
+
+  function col(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim();}
+  function size(c,ctx){
+    dpr=window.devicePixelRatio||1;
+    var r=c.getBoundingClientRect();
+    c.width=Math.round(r.width*dpr); c.height=Math.round(r.height*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    return {w:r.width,h:r.height};
+  }
+  function resize(){ D.sim=size(sim,sc); D.plot=size(plot,pc); D.en=size(enC,ec); D.ph=size(phC,hc); }
+  window.addEventListener('resize',resize); resize();
+
+  function yEq(){return H*EQ_FRAC;}
+  function aPx(){return H*AMAX_FRAC;}
+  function xNow(){ return dragging ? dragX : x0*Math.cos(phase); }
+  function yOf(x){ return yEq()-x*aPx(); }
+
+  // visual parameters of the mass and spring (defaults in mode "f₀ directly")
+  function massDims(){ var mm=(mode==='k')?m:1.5; return {w:60+24*mm,h:26+10*mm}; }
+
+  function updateFreq(){
+    if(mode==='k'){ omega=Math.sqrt(k/m); f=omega/(2*Math.PI); }
+    else { f=parseFloat(fIn.value); omega=2*Math.PI*f; }
+    fOut.textContent=f.toFixed(2)+' Hz';
+    mOut.textContent=m.toFixed(1)+' kg';
+    kOut.textContent=k.toFixed(0)+' N/m';
+    var txt='ω₀ = '+omega.toFixed(2)+' rad/s · f₀ = '+f.toFixed(2)+' Hz · T = '+(1/f).toFixed(2)+' s';
+    if(mode==='k') txt='ω₀ = √(k/m) = '+omega.toFixed(2)+' rad/s · f₀ = ω₀/2π = '+f.toFixed(2)+' Hz · T = '+(1/f).toFixed(2)+' s';
+    info.textContent=txt;
+  }
+  function setMode(mm){
+    if(mm===mode) return;
+    if(mm==='f'){ fIn.value=f; }       // carry the computed f₀ over to the slider
+    mode=mm;
+    btnF.setAttribute('aria-checked',mode==='f'); btnK.setAttribute('aria-checked',mode==='k');
+    boxF.hidden=(mode!=='f'); boxK.hidden=(mode!=='k');
+    if(mode==='f'){ f=parseFloat(fIn.value); omega=2*Math.PI*f; fOut.textContent=f.toFixed(2)+' Hz'; info.textContent='ω₀ = '+omega.toFixed(2)+' rad/s · f₀ = '+f.toFixed(2)+' Hz · T = '+(1/f).toFixed(2)+' s'; }
+    else updateFreq();
+  }
+  function setUnit(u){ unit=u; uS.setAttribute('aria-checked',u==='s'); uP.setAttribute('aria-checked',u==='p'); }
+  uS.addEventListener('click',function(){setUnit('s');});
+  uP.addEventListener('click',function(){setUnit('p');});
+  function showPanels(){ panE.hidden=!showE.checked; panP.hidden=!showP.checked; extras.hidden=!(showE.checked||showP.checked); resize(); }
+  showE.addEventListener('change',showPanels); showP.addEventListener('change',showPanels);
+  btnF.addEventListener('click',function(){setMode('f');});
+  btnK.addEventListener('click',function(){setMode('k');});
+  fIn.addEventListener('input',updateFreq);
+  mIn.addEventListener('input',function(){m=parseFloat(mIn.value);updateFreq();});
+  kIn.addEventListener('input',function(){k=parseFloat(kIn.value);updateFreq();});
+  pp.addEventListener('click',function(){
+    running=!running; pp.textContent=running?'Pause':'Play';
+  });
+  document.getElementById('reset').addEventListener('click',function(){
+    x0=0.6; phase=0; phase0=0; t=0; hist=[]; running=true; pp.textContent='Pause';
+  });
+  updateFreq();
+
+  // dragging the mass
+  function pointerPos(e){ var r=sim.getBoundingClientRect(); W=D.sim.w; H=D.sim.h; return {x:e.clientX-r.left,y:e.clientY-r.top}; }
+  function overMass(p){
+    var d=massDims(), cy=yOf(xNow());
+    return Math.abs(p.x-W/2)<d.w/2+14 && Math.abs(p.y-cy)<d.h/2+14;
+  }
+  sim.addEventListener('pointerdown',function(e){
+    var p=pointerPos(e);
+    if(!overMass(p)) return;
+    dragging=true; sim.setPointerCapture(e.pointerId); sim.style.cursor='grabbing';
+    dragX=clampX((yEq()-p.y)/aPx());
+  });
+  sim.addEventListener('pointermove',function(e){
+    var p=pointerPos(e);
+    if(dragging){ dragX=clampX((yEq()-p.y)/aPx()); }
+    else sim.style.cursor=overMass(p)?'grab':'default';
+  });
+  function release(){
+    if(!dragging) return;
+    dragging=false; sim.style.cursor='grab';
+    var a=Math.max(0.1,Math.abs(dragX));
+    x0=a; phase=dragX>=0?0:Math.PI; phase0=phase; t=0; hist=[];
+  }
+  sim.addEventListener('pointerup',release);
+  sim.addEventListener('pointercancel',release);
+  function clampX(v){ return Math.max(-1,Math.min(1,v)); }
+
+  function arrow(c,x1,y1,x2,y2,size){
+    var a=Math.atan2(y2-y1,x2-x1);
+    c.beginPath(); c.moveTo(x2,y2);
+    c.lineTo(x2-size*Math.cos(a-0.4),y2-size*Math.sin(a-0.4));
+    c.lineTo(x2-size*Math.cos(a+0.4),y2-size*Math.sin(a+0.4));
+    c.closePath(); c.fill();
+  }
+
+  function drawSim(x){
+    W=D.sim.w; H=D.sim.h;
+    var s=sc, cx=W/2, ceilY=H*0.06, my=yOf(x), d=massDims(), mh=d.h, mw=d.w;
+    var kk=(mode==='k')?k:15;
+    s.clearRect(0,0,W,H);
+    // reference lines
+    s.save(); s.setLineDash([5,5]); s.lineWidth=1; s.strokeStyle=col('--grid'); s.fillStyle=col('--muted');
+    s.font='13px system-ui,sans-serif'; s.textBaseline='middle';
+    [[x0,'+x₀'],[0,'x = 0'],[-x0,'−x₀']].forEach(function(r){
+      var y=yOf(r[0]); s.beginPath(); s.moveTo(10,y); s.lineTo(W-10,y); s.stroke();
+      s.fillText(r[1],14,y-10);
+    });
+    s.restore();
+    // ceiling
+    s.fillStyle=col('--muted'); s.fillRect(W*0.1,ceilY-8,W*0.8,8);
+    s.strokeStyle=col('--muted'); s.lineWidth=1.5;
+    for(var i=0;i<24;i++){ var hx=W*0.1+i*(W*0.8/23); s.beginPath(); s.moveTo(hx,ceilY-8); s.lineTo(hx-8,ceilY-18); s.stroke(); }
+    // spring: stiffer = thicker wire and tighter coils
+    var top=ceilY, bot=my-mh/2, lead=14, amp=16;
+    var n=Math.round(7+(kk-10)/65*9);
+    s.strokeStyle=col('--spring'); s.lineWidth=1.6+(kk-10)/65*3.4; s.lineJoin='round';
+    s.beginPath(); s.moveTo(cx,top); s.lineTo(cx,top+lead);
+    var y0=top+lead, y1=bot-lead, step=(y1-y0)/(n*2);
+    for(var q=0;q<n*2;q++){
+      var sx=cx+((q%2===0)?amp:-amp)*(q===0||q===n*2-1?0.5:1);
+      s.lineTo(sx,y0+step*(q+0.5));
+    }
+    s.lineTo(cx,y1); s.lineTo(cx,bot); s.stroke();
+    // mass
+    s.fillStyle=col('--mass'); s.beginPath();
+    if(s.roundRect) s.roundRect(cx-mw/2,my-mh/2,mw,mh,8); else s.rect(cx-mw/2,my-mh/2,mw,mh);
+    s.fill();
+    s.fillStyle='#fff'; s.font='600 13px system-ui,sans-serif'; s.textAlign='center'; s.textBaseline='middle';
+    s.fillText('m',cx,my+1);
+    s.textAlign='left';
+    if(!dragging && t<2.5){ s.fillStyle=col('--muted'); s.font='12px system-ui,sans-serif'; s.textAlign='center'; s.fillText('drag the mass',cx,my+mh/2+16); s.textAlign='left'; }
+  }
+
+  function drawPlot(x){
+    W=D.plot.w; H=D.plot.h;
+    var p=pc, L=70, R=W-34, B=H-44, T=10;
+    p.clearRect(0,0,W,H);
+    var y0=yEq(), ya=yOf(x0), yb=yOf(-x0);
+    p.font='13px system-ui,sans-serif'; p.textBaseline='middle';
+    // grid lines + y labels
+    p.save(); p.setLineDash([5,5]); p.lineWidth=1; p.strokeStyle=col('--grid');
+    [ya,y0,yb].forEach(function(y){ p.beginPath(); p.moveTo(L,y); p.lineTo(R,y); p.stroke(); });
+    p.restore();
+    p.fillStyle=col('--text'); p.textAlign='right';
+    p.fillText('+x₀',L-10,ya); p.fillText('x = 0',L-10,y0); p.fillText('−x₀',L-10,yb);
+    // axes with arrowheads
+    p.strokeStyle=col('--muted'); p.fillStyle=col('--muted'); p.lineWidth=1.5;
+    p.beginPath(); p.moveTo(L,B); p.lineTo(L,T+2); p.moveTo(L,B); p.lineTo(R+12,B); p.stroke();
+    arrow(p,L,B,L,T,10); arrow(p,L,B,R+16,B,10);
+    p.textAlign='left'; p.fillText('x(t)',L+10,T+8);
+    var per=(unit==='p'), pw0=R-L, cyc=(phase-phase0)/6.283185307, tv=per?cyc:t, span=per?NP:WINDOW;
+    p.textAlign='right'; p.fillText(per?'t / T':'t (s)',R+16,B+32);
+    p.textAlign='left'; p.fillText('window: last '+(per?NP+' periods':WINDOW+' s'),L,B+32);
+    p.textAlign='center'; p.strokeStyle=col('--muted'); p.lineWidth=1;
+    for(var n=Math.max(0,Math.ceil(tv-span)); n<=Math.floor(tv); n++){
+      var tx=R-(tv-n)/span*pw0; if(tx<L) continue;
+      p.beginPath(); p.moveTo(tx,B); p.lineTo(tx,B+5); p.stroke(); p.fillText(n,tx,B+17);
+    }
+    // curve
+    var pw=R-L, tNow=t;
+    p.save(); p.beginPath(); p.rect(L,T,pw+8,B-T); p.clip();
+    p.strokeStyle=col('--mass'); p.lineWidth=2.2; p.lineJoin='round'; p.beginPath();
+    var started=false;
+    for(var i=0;i<hist.length;i++){
+      var px=per?R-(phase-hist[i][2])/(6.283185307*NP)*pw:R-(tNow-hist[i][0])/WINDOW*pw, py=yOf(hist[i][1]);
+      if(!started){p.moveTo(px,py);started=true;} else p.lineTo(px,py);
+    }
+    p.stroke(); p.restore();
+    // current point
+    p.fillStyle=col('--mass'); p.beginPath(); p.arc(R,yOf(x),5,0,6.2832); p.fill();
+  }
+
+  function drawEnergy(){
+    if(!showE.checked) return;
+    W=D.en.w; H=D.en.h;
+    var e=ec, K,U,Tt, L=56, R=W-16, T=44, B=H-46, hg=B-T;
+    if(dragging){ K=0; U=dragX*dragX; Tt=U; } else { var a2=x0*x0, sn=Math.sin(phase); K=a2*sn*sn; U=a2-K; Tt=a2; }
+    e.clearRect(0,0,W,H); e.textBaseline='middle';
+    e.font='600 14px system-ui,sans-serif'; e.fillStyle=col('--text'); e.textAlign='left'; e.fillText('Energy',16,20);
+    e.font='13px system-ui,sans-serif'; e.fillStyle=col('--muted'); e.textAlign='right'; e.fillText('E / E_max',R,20);
+    e.strokeStyle=col('--grid'); e.lineWidth=1; e.setLineDash([5,5]);
+    [0,0.5,1].forEach(function(v){ var y=B-v*hg; e.beginPath(); e.moveTo(L,y); e.lineTo(R,y); e.stroke(); e.textAlign='right'; e.fillText(v,L-8,y); });
+    e.setLineDash([]);
+    var bars=[['Kinetic',K,col('--accent'),1],['Potential',U,col('--spring'),1],['Total',Tt,col('--muted'),0.45]];
+    var slot=(R-L)/3, bw=Math.min(70,slot*0.6);
+    bars.forEach(function(b,i){
+      var cx=L+slot*(i+0.5), h=b[1]*hg;
+      e.globalAlpha=b[3]; e.fillStyle=b[2]; e.fillRect(cx-bw/2,B-h,bw,h); e.globalAlpha=1;
+      e.fillStyle=col('--muted'); e.textAlign='center'; e.fillText(b[0],cx,B+16);
+    });
+    e.font='12px system-ui,sans-serif'; e.textAlign='center'; e.fillText('E_max = ½ k x_max² (largest possible amplitude)',W/2,H-12);
+  }
+  function drawPhase(x){
+    if(!showP.checked) return;
+    W=D.ph.w; H=D.ph.h;
+    var q=hc, cx=W/2, cy=H/2+8, u=Math.min(W,H-30)/2*0.78, len=u*1.2;
+    var r=dragging?Math.abs(dragX):x0, vv=dragging?0:-x0*Math.sin(phase);
+    q.clearRect(0,0,W,H); q.textBaseline='middle';
+    q.font='600 14px system-ui,sans-serif'; q.fillStyle=col('--text'); q.textAlign='left'; q.fillText('Phase portrait',16,20);
+    q.strokeStyle=col('--muted'); q.fillStyle=col('--muted'); q.lineWidth=1.5;
+    q.beginPath(); q.moveTo(cx-len,cy); q.lineTo(cx+len,cy); q.moveTo(cx,cy+len); q.lineTo(cx,cy-len); q.stroke();
+    arrow(q,cx-len,cy,cx+len,cy,9); arrow(q,cx,cy+len,cx,cy-len,9);
+    q.font='13px system-ui,sans-serif'; q.textAlign='left'; q.fillText('x',cx+len-4,cy-12); q.fillText('v / ω₀',cx+10,cy-len+4);
+    q.setLineDash([5,5]); q.lineWidth=1; q.strokeStyle=col('--grid');
+    q.beginPath(); q.arc(cx,cy,r*u,0,6.283185307); q.stroke(); q.setLineDash([]);
+    q.fillStyle=col('--muted'); q.textAlign='center';
+    q.fillText('+x₀',cx+r*u,cy+16); q.fillText('−x₀',cx-r*u,cy+16);
+    q.fillStyle=col('--mass'); q.beginPath(); q.arc(cx+x*u,cy-vv*u,6,0,6.283185307); q.fill();
+  }
+  var last=performance.now();
+  function frame(now){
+    var dt=Math.min(0.05,(now-last)/1000); last=now;
+    if(running && !dragging){
+      phase+=omega*dt; t+=dt;
+      hist.push([t,x0*Math.cos(phase),phase]);
+      while(hist.length && t-hist[0][0]>16.5) hist.shift();
+    }
+    var x=xNow();
+    drawSim(x); drawPlot(x); drawEnergy(); drawPhase(x);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viewer</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="viewer">
+<header class="bar">
+  <a href="index.html">← Index</a>
+  <span class="title" id="title"></span>
+  <nav class="nav">
+    <a id="prev" href="#">← Previous</a>
+    <a id="next" href="#">Next →</a>
+  </nav>
+  <a id="raw" href="#" target="_blank" rel="noopener">Open in new tab ↗</a>
+</header>
+<iframe id="frame" title="Animation"></iframe>
+<script>
+(function () {
+  // Order = storyline of the course. File name (without .html) must match animations/<id>.html
+  var DEMOS = [
+    ["spring_mass", "Free spring-mass system"],
+    ["damped_spring_mass", "Damped spring-mass system"],
+    ["spring_resonance", "Forced undamped system"],
+    ["resonance_lab", "Resonance lab"],
+    ["double_well", "Marble in a double well"],
+    ["langevin_marble", "Langevin marble"],
+    ["stochastic_resonance", "Stochastic resonance"]
+  ];
+  var id = new URLSearchParams(location.search).get("demo");
+  var i = DEMOS.findIndex(function (d) { return d[0] === id; });
+  if (i < 0) { location.replace("index.html"); return; }
+  var src = "animations/" + DEMOS[i][0] + ".html";
+  document.title = DEMOS[i][1] + " · Viewer";
+  document.getElementById("title").textContent = DEMOS[i][1];
+  document.getElementById("frame").src = src;
+  document.getElementById("raw").href = src;
+  function link(el, j) {
+    if (j < 0 || j >= DEMOS.length) { el.setAttribute("aria-disabled", "true"); return; }
+    el.href = "viewer.html?demo=" + DEMOS[j][0];
+    el.title = DEMOS[j][1];
+  }
+  link(document.getElementById("prev"), i - 1);
+  link(document.getElementById("next"), i + 1);
+})();
+</script>
+</body>
+</html>

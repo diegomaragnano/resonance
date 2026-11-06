@@ -1,0 +1,127 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>Resonance lab: driven, damped spring-mass</title>
+<style>
+:root{--bg:#eef1f4;--card:#fff;--ink:#16202b;--mut:#66727f;--line:#d3d9df;--acc:#0b6bcb;--hot:#e0531f;--ok:#1b8a5a;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f151c;--card:#18212b;--ink:#e6ebf0;--mut:#8b98a6;--line:#2b3744;--acc:#5aa8ff;--hot:#ff8051;--ok:#47c88f;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f151c;--card:#18212b;--ink:#e6ebf0;--mut:#8b98a6;--line:#2b3744;--acc:#5aa8ff;--hot:#ff8051;--ok:#47c88f;color-scheme:dark}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 "Avenir Next","Segoe UI",system-ui,sans-serif;padding:14px}
+h1{font:600 20px/1.2 Georgia,"Times New Roman",serif;margin:0 0 10px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px;min-width:0}
+canvas{display:block;width:100%}#sim{height:540px}#tr{height:200px}#rc{height:230px}#ph{height:130px}
+.col{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ro{display:grid;grid-template-columns:repeat(4,1fr);gap:6px 10px;padding:4px}
+.ro div{font-size:12px;color:var(--mut)}.ro b{display:block;font:600 16px Georgia,serif;color:var(--ink)}
+.ro .q b{font-size:24px;color:var(--hot)}
+.ctl{margin-top:12px;display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:10px 18px;align-items:end}
+label{display:block;font-size:13px;color:var(--mut)}label b{color:var(--ink);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+button,select{font:inherit;font-size:13px;padding:6px 11px;border:1px solid var(--line);border-radius:7px;background:var(--card);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--acc)}button.on{background:var(--acc);color:var(--bg);border-color:var(--acc)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+@media(max-width:820px){.app{grid-template-columns:1fr}#sim{height:500px}.ro{grid-template-columns:repeat(2,1fr)}}
+</style></head><body>
+<h1>Resonance lab</h1>
+<div class="app">
+<div class="card"><canvas id="sim" role="img" aria-label="Animation of the driven spring, mass and dashpot"></canvas></div>
+<div class="col">
+<div class="card"><canvas id="tr" role="img" aria-label="Mass position against time, or phase portrait"></canvas></div>
+<div class="card"><canvas id="rc" role="img" aria-label="Resonance curve of amplitude ratio against frequency ratio"></canvas></div><div class="card" id="phc" hidden><canvas id="ph" role="img" aria-label="Phase lag against frequency ratio"></canvas></div>
+<div class="card ro" id="ro"></div>
+</div></div>
+<div class="card ctl" style="margin-top:12px">
+<label>Drive frequency <b id="rv"></b><input id="r" type="range" min=".2" max="3" step=".005" value="1"></label>
+<label>Quality factor Q <b id="qv"></b><input id="q" type="range" min="-.693" max="3" step=".01" value="2.08"><i style="display:block;height:6px;border-radius:3px;background:linear-gradient(90deg,hsl(40,70%,32%),hsl(120,70%,47%),hsl(200,70%,62%))"></i><small>Fluid colour: amber = heavy damping, blue = light damping</small></label>
+<label>Drive amplitude <b id="yv"></b><input id="y" type="range" min="2" max="14" step=".5" value="6"></label>
+<label>Drive type<br><select id="mode"><option value="b">Moving support</option><option value="f">Force on the mass</option></select></label><label>Stiffness: ω₀ = √(k/m), m = 1<input id="w" type="range" min="1.5" max="6" step=".05" value="3.14159"></label><label>Speed<br><select id="sp"><option value=".25">0.25×</option><option value=".5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option></select></label>
+</div>
+<div class="btns"><button id="sn">Snap to ω = ω₀</button><button id="p5">ω/ω₀ = 0.5</button><button id="p2">ω/ω₀ = 2</button><button id="sw">Sweep through resonance</button><button id="dr">Stop drive</button><button id="pa">Pause</button><button id="vw">Phase portrait</button><button id="pp">Phase panel</button><button id="rs">Reset</button></div>
+<script>
+let W0=Math.PI,K=W0*W0;const $=id=>document.getElementById(id),cs=getComputedStyle(document.documentElement),C={},col=n=>C[n]||(C[n]=cs.getPropertyValue(n).trim());matchMedia('(prefers-color-scheme:dark)').onchange=()=>{for(const k in C)delete C[k]};
+const S={x:0,v:0,phi:0,t:0,r:1,Q:8,Y:6,base:true,drive:true,paused:false,speed:1,sweep:false,re:1.5,tc:0,t0:0,A0:0,view:'t',ph:false};
+let hist=[],trace=[],nextS=0,nextT=0,yr=10,last=performance.now(),fr=0;
+const uNow=()=>S.drive?S.Y*Math.cos(S.phi):0;
+function H(r,Q,base){const z=r/Q,dr=1-r*r,nm=base?Math.hypot(1,z):1,mag=nm/Math.hypot(dr,z);const lag=-((base?Math.atan2(z,1):0)-Math.atan2(z,dr));return[mag,((lag*180/Math.PI)+360)%360]}
+function step(dt){const w=S.r*W0,Y=S.drive?S.Y:0,c=W0/S.Q;
+const f=(x,v,p)=>{const u=Y*Math.cos(p),ud=-Y*w*Math.sin(p);return[v,S.base?-c*(v-ud)-K*(x-u):-c*v-K*x+K*u]};
+const h=dt/2,p0=S.phi,p1=p0+w*h,p2=p0+w*dt,a=f(S.x,S.v,p0),b=f(S.x+h*a[0],S.v+h*a[1],p1),d=f(S.x+h*b[0],S.v+h*b[1],p1),e=f(S.x+dt*d[0],S.v+dt*d[1],p2);
+S.x+=dt/6*(a[0]+2*b[0]+2*d[0]+e[0]);S.v+=dt/6*(a[1]+2*b[1]+2*d[1]+e[1]);S.phi=p2;S.t+=dt;
+if(S.t>=nextS){hist.push([S.t,S.x,uNow(),S.v/W0]);nextS=S.t+.02;while(hist[0][0]<S.t-12)hist.shift()}}
+const wn=()=>Math.min(5.5,4*Math.PI/(S.r*W0));
+function meas(o=0){const win=wn(),t1=S.t-o;let mx=-1e9,mn=1e9;for(let i=hist.length-1;i>=0;i--){const t=hist[i][0];if(t>t1)continue;if(t<=t1-win)break;mx=Math.max(mx,hist[i][1]);mn=Math.min(mn,hist[i][1])}return mx<mn?0:(mx-mn)/2}
+function settled(){const a=meas(),b=meas(wn());return S.drive&&!S.sweep&&S.t-S.tc>2*wn()&&Math.abs(a-b)<.02*a}
+function fit(c){const d=devicePixelRatio||1,w=c.clientWidth,h=c.clientHeight;if(c.width!==Math.round(w*d)||c.height!==Math.round(h*d)){c.width=Math.round(w*d);c.height=Math.round(h*d)}const g=c.getContext('2d');g.setTransform(d,0,0,d,0,0);g.clearRect(0,0,w,h);return[g,w,h]}
+function zig(g,x,y0,y1,n,a){g.beginPath();g.moveTo(x,y0);const s=(y1-y0)*.1;g.lineTo(x,y0+s);for(let i=1;i<2*n;i++)g.lineTo(x+(i%2?a:-a),y0+s+(y1-y0-2*s)*i/(2*n));g.lineTo(x,y1-s);g.lineTo(x,y1);g.stroke()}
+function drawSim(){const[g,W]=fit($('sim')),cx=W*.6,L=170,ink=col('--ink'),mut=col('--mut'),w=S.r*W0,c=W0/S.Q;
+const u=uNow(),ud=S.drive?-S.Y*w*Math.sin(S.phi):0,py=70-(S.base?u:0),xd=Math.abs(S.x)<.8*L?S.x:Math.sign(S.x)*(.8*L+.2*L*Math.tanh((Math.abs(S.x)-.8*L)/(.2*L))),my=300-xd,top=my-25;
+g.lineWidth=2;g.strokeStyle=mut;g.fillStyle=ink;g.beginPath();g.moveTo(8,12);g.lineTo(W-8,12);for(let x=8;x<W-14;x+=12){g.moveTo(x,12);g.lineTo(x+8,2)}g.stroke();
+g.lineWidth=1;g.beginPath();g.moveTo(cx-78,12);g.lineTo(cx-78,125);g.moveTo(cx+78,12);g.lineTo(cx+78,125);g.stroke();
+g.globalAlpha=S.base?1:.15;const cx0=Math.max(46,W*.14),px=cx0+S.Y*Math.sin(S.phi),pyy=76-u;g.lineWidth=2;g.beginPath();g.arc(cx0,76,36,0,7);g.stroke();
+g.beginPath();g.moveTo(cx0,76);g.lineTo(px,pyy);g.stroke();g.beginPath();g.arc(px,pyy,4,0,7);g.fill();g.beginPath();g.arc(cx0,76,2.5,0,7);g.fill();
+if(S.base&&S.drive){g.lineWidth=1.5;g.beginPath();g.moveTo(px,pyy);g.lineTo(cx-70,pyy);g.stroke()}
+g.globalAlpha=1;g.fillRect(cx-70,py,140,12);
+g.lineWidth=2;g.strokeStyle=ink;zig(g,cx-40,py+12,top,10,13);
+const q=Math.min(1,Math.max(0,(Math.log(S.Q)-Math.log(.5))/(Math.log(20)-Math.log(.5)))),ct=py+12,cb=ct+190;
+g.fillStyle='hsl('+(40+160*q)+',70%,'+(32+30*q)+'%)';g.fillRect(cx+24,ct,28,190);
+g.strokeStyle=ink;g.lineWidth=2;g.strokeRect(cx+24,ct,28,190);
+const pist=Math.max(ct+14,Math.min(cb-6,top-60));g.beginPath();g.moveTo(cx+38,pist);g.lineTo(cx+38,top);g.stroke();g.fillStyle=ink;g.fillRect(cx+27,pist-3,22,6);
+g.fillStyle=col('--acc');g.fillRect(cx-35,top,70,50);g.strokeStyle=ink;g.strokeRect(cx-35,top,70,50);
+g.fillStyle=col('--bg');g.font='600 13px sans-serif';g.textAlign='center';g.fillText('m',cx,my+4);
+if(!S.base&&S.drive){g.strokeStyle=col('--hot');g.lineWidth=4;g.lineCap='round';g.beginPath();g.moveTo(cx,my+40);g.lineTo(cx,my+40-u*4);g.stroke();g.lineCap='butt'}
+g.textAlign='left';g.font='12px sans-serif';g.fillStyle=mut;
+if(Math.abs(S.x)>.8*L){g.fillStyle=col('--hot');g.fillText('Display clamped: true swing is larger',10,H_(g)-12)}}
+const H_=g=>g.canvas.clientHeight;
+function drawTr(){const[g,W,Hh]=fit($('tr')),[th]=H(S.r,S.Q,S.base),A=th*S.Y,m=meas();yr+=(Math.max(S.Y*1.4,A*1.15,m*1.15)-yr)*.05;
+const Y=v=>Hh/2-v/yr*(Hh/2-40),X=t=>40+(t-(S.t-12))/12*(W-40),ink=col('--ink'),mut=col('--mut');if(S.view=='p')return drawPp(g,W,Hh,ink,mut);
+g.fillStyle=mut;g.globalAlpha=.16;g.fillRect(0,Y(S.Y),W,Y(-S.Y)-Y(S.Y));g.globalAlpha=1;
+g.strokeStyle=mut;g.lineWidth=1;g.setLineDash([]);g.beginPath();g.moveTo(0,Y(0));g.lineTo(W,Y(0));g.stroke();
+if(S.drive){g.setLineDash([1,6]);g.strokeStyle=ink;g.lineWidth=2.5;g.lineCap='round';for(const s of[1,-1]){g.beginPath();g.moveTo(0,Y(s*A));g.lineTo(W,Y(s*A));g.stroke()}g.lineCap='butt'}else if(S.A0){g.setLineDash([1,6]);g.strokeStyle=ink;g.lineWidth=2.5;g.lineCap='round';for(const s of[1,-1]){g.beginPath();let f=1;for(const p of hist){if(p[0]<S.t0)continue;const e=s*S.A0*Math.exp(-W0*(p[0]-S.t0)/(2*S.Q));f?g.moveTo(X(p[0]),Y(e)):g.lineTo(X(p[0]),Y(e));f=0}g.stroke()}g.lineCap='butt'}
+const pl=(i,st,lw,dash)=>{g.setLineDash(dash);g.strokeStyle=st;g.lineWidth=lw;g.beginPath();hist.forEach((p,k)=>k?g.lineTo(X(p[0]),Y(p[i])):g.moveTo(X(p[0]),Y(p[i])));g.stroke()};
+pl(2,col('--hot'),2,[9,5]);pl(1,col('--acc'),2.6,[]);g.setLineDash([]);
+g.font='12px sans-serif';g.textBaseline='middle';let lx=8,ly=12;
+[['s',col('--acc'),'Mass position x(t)'],['d',col('--hot'),S.base?'Support position y(t)':'Drive force (scaled)'],['b',mut,'± drive amplitude'],['p',ink,S.drive?'± steady-state amplitude of x (theory)':'± decay envelope A₀e^(−ω₀t/2Q)']].forEach(([k,c,t])=>{const w=g.measureText(t).width+44;if(lx+w>W){lx=8;ly+=17}
+g.strokeStyle=c;g.fillStyle=c;g.lineWidth=k=='s'?2.6:2;g.setLineDash(k=='d'?[9,5]:[]);
+if(k=='b'){g.globalAlpha=.3;g.fillRect(lx,ly-5,30,10);g.globalAlpha=1}else if(k=='p'){g.lineWidth=2.5;g.lineCap='round';g.setLineDash([1,6]);g.beginPath();g.moveTo(lx,ly);g.lineTo(lx+30,ly);g.stroke();g.lineCap='butt'}else{g.beginPath();g.moveTo(lx,ly);g.lineTo(lx+30,ly);g.stroke()}
+g.setLineDash([]);g.fillStyle=ink;g.fillText(t,lx+36,ly);lx+=w+10});g.textBaseline='alphabetic';g.fillStyle=mut;g.font='11px sans-serif';const T0=2*Math.PI/W0;g.textAlign='center';for(let k=Math.ceil((S.t-12)/T0);k*T0<=S.t;k++){g.fillRect(X(k*T0),Hh-26,1,5);g.fillText(k,X(k*T0),Hh-12)}const st=(()=>{const r=yr*.001/2,p=Math.pow(10,Math.floor(Math.log10(r))),n=r/p;return(n<1.5?1:n<3.5?2:n<7.5?5:10)*p})(),kk=Math.floor(yr*.001/st);g.textAlign='right';for(let k=-kk;k<=kk;k++){g.fillText(+(k*st).toFixed(4),35,Y(k*st*1000)+4);g.fillRect(37,Y(k*st*1000),3,1)}
+g.textAlign='right';g.fillText('time in natural periods T₀ = '+T0.toFixed(2)+' s',W-4,Hh-1);g.save();g.translate(10,Hh/2);g.rotate(-Math.PI/2);g.textAlign='center';g.fillText('x (m)',0,0);g.restore();g.textAlign='left'}
+function drawPp(g,W,Hh,ink,mut){const s=(Hh/2-26)/yr,cx=W/2,cy=Hh/2,P=(x,v)=>[cx+x*s,cy-v*s];g.strokeStyle=mut;g.lineWidth=1;g.beginPath();g.moveTo(cx-Hh/2,cy);g.lineTo(cx+Hh/2,cy);g.moveTo(cx,22);g.lineTo(cx,Hh-4);g.stroke();g.fillStyle=mut;g.font='11px sans-serif';g.fillText('x (m)',cx+Hh/2-40,cy-5);g.fillText('ẋ/ω₀ (m)',cx+5,32);g.fillText('Phase portrait: ẋ/ω₀ against x, axes span ±'+(yr*.001).toFixed(3)+' m (latest 3 s bold)',8,14);
+const tr=(a,b,al)=>{g.globalAlpha=al;g.strokeStyle=col('--acc');g.lineWidth=2.4;g.beginPath();let f=1;for(const p of hist){if(p[0]<a||p[0]>b)continue;const q=P(p[1],p[3]);f?g.moveTo(q[0],q[1]):g.lineTo(q[0],q[1]);f=0}g.stroke()};tr(S.t-12,S.t-3,.25);tr(S.t-3,S.t,1);g.globalAlpha=1;const q=P(S.x,S.v/W0);g.fillStyle=col('--acc');g.beginPath();g.arc(q[0],q[1],5,0,7);g.fill()}
+function drawPh(){if(!S.ph)return;const[g,W,Hh]=fit($('ph')),l=34,b=22,X=r=>l+r/3*(W-l-10),Y=d=>Hh-b-d/180*(Hh-b-22),mut=col('--mut');g.strokeStyle=mut;g.lineWidth=1;g.beginPath();g.moveTo(l,18);g.lineTo(l,Hh-b);g.lineTo(W-8,Hh-b);g.stroke();g.fillStyle=mut;g.font='11px sans-serif';g.textAlign='right';[0,90,180].forEach(d=>g.fillText(d+'°',l-4,Y(d)+4));g.textAlign='center';[0,1,2,3].forEach(r=>g.fillText(r,X(r),Hh-8));g.textAlign='left';g.fillText('Phase lag of the mass behind the '+(S.base?'support':'force'),l+6,12);g.fillText('ω/ω₀',W-40,Hh-1);g.strokeStyle=col('--acc');g.lineWidth=2.2;g.beginPath();for(let i=0;i<=300;i++){const p=H(i/100,S.Q,S.base)[1];i?g.lineTo(X(i/100),Y(p)):g.moveTo(X(0),Y(p))}g.stroke();g.fillStyle=col('--hot');g.beginPath();g.arc(X(S.r),Y(H(S.r,S.Q,S.base)[1]),6,0,7);g.fill()}
+function curve(){const o=[];let pk=0,pr=0;for(let i=0;i<=300;i++){const r=i/100,h=H(r,S.Q,S.base)[0];o.push([r,h]);if(h>pk){pk=h;pr=r}}return{o,pk,pr}}
+function drawRc(){const[g,W,Hh]=fit($('rc')),{o,pk,pr}=curve(),ym=Math.max(pk*1.15,1.6),l=34,b=26,X=r=>l+r/3*(W-l-10),Y=v=>Hh-b-v/ym*(Hh-b-36),mut=col('--mut'),ink=col('--ink');
+const lv=pk/Math.SQRT2;let rr=null;for(let i=Math.round(pr*100);i<o.length;i++)if(o[i][1]<lv){rr=o[i][0];break}
+g.fillStyle=col('--ok');g.globalAlpha=.16;if(rr)g.fillRect(X(pr),30,X(rr)-X(pr),Hh-b-30);g.globalAlpha=1;
+g.strokeStyle=mut;g.lineWidth=1;g.beginPath();g.moveTo(l,10);g.lineTo(l,Hh-b);g.lineTo(W-8,Hh-b);g.stroke();g.setLineDash([3,4]);g.beginPath();g.moveTo(l,Y(1));g.lineTo(W-8,Y(1));g.moveTo(X(1),12);g.lineTo(X(1),Hh-b);g.stroke();g.setLineDash([]);
+g.fillStyle=mut;g.font='11px sans-serif';g.textAlign='center';[0,.5,1,1.5,2,2.5,3].forEach(r=>g.fillText(r,X(r),Hh-12));g.textAlign='right';[0,1].concat(pk>1.3?[+pk.toFixed(1)]:[]).forEach(v=>g.fillText(v,l-4,Y(v)+4));g.textAlign='left';
+g.fillText('Drive frequency ratio ω/ω₀',W-165,Hh-2);g.fillText(S.base?'Response X/Y: mass amplitude ÷ support amplitude':'Response X/X_static: mass amplitude ÷ static deflection',l+6,12);g.fillText('Green: half width at half maximum (HWHM) of the X² peak (right side shown)',l+6,25);
+g.strokeStyle=col('--acc');g.lineWidth=2.2;g.beginPath();o.forEach((p,i)=>i?g.lineTo(X(p[0]),Y(p[1])):g.moveTo(X(p[0]),Y(p[1])));g.stroke();
+g.fillStyle=col('--hot');g.beginPath();g.moveTo(X(pr),Y(pk)-8);g.lineTo(X(pr)-5,Y(pk)-16);g.lineTo(X(pr)+5,Y(pk)-16);g.fill();
+if(S.base){g.setLineDash([2,3]);g.strokeStyle=mut;g.lineWidth=1;g.beginPath();g.moveTo(X(Math.SQRT2),30);g.lineTo(X(Math.SQRT2),Hh-b);g.stroke();g.setLineDash([]);g.fillStyle=mut;g.font='11px sans-serif';g.fillText('√2: isolation above',X(Math.SQRT2)+4,Hh-b-4)}
+if(rr){const ya=Y(lv);g.strokeStyle=col('--ok');g.fillStyle=col('--ok');g.lineWidth=2;g.setLineDash([]);g.beginPath();g.moveTo(X(pr),ya);g.lineTo(X(rr),ya);g.stroke();
+for(const[xa,s]of[[X(pr),1],[X(rr),-1]]){g.beginPath();g.moveTo(xa,ya);g.lineTo(xa+s*7,ya-4);g.lineTo(xa+s*7,ya+4);g.closePath();g.fill()}
+g.fillStyle=ink;g.font='11px sans-serif';const t='HWHM ≈ ω₀/2Q = '+(W0/2/S.Q).toFixed(2)+' rad/s',rt=X(rr)+8+g.measureText(t).width<W;g.textAlign=rt?'left':'right';g.fillText(t,rt?X(rr)+8:X(pr)-8,ya+4);g.textAlign='left'}
+g.fillStyle=ink;trace.forEach(p=>{g.globalAlpha=.55;g.beginPath();g.arc(X(p[0]),Y(Math.min(p[1],ym)),2.2,0,7);g.fill()});g.globalAlpha=1;
+const th=H(S.r,S.Q,S.base)[0];g.fillStyle=col('--hot');g.beginPath();g.arc(X(S.r),Y(th),6,0,7);g.fill();
+if(S.drive){g.strokeStyle=ink;g.lineWidth=2;g.beginPath();g.arc(X(S.r),Y(Math.min(meas()/S.Y,ym)),6,0,7);g.stroke()}}
+function readout(){const z=1/(2*S.Q),[th,ph]=H(S.r,S.Q,S.base),m=meas()/S.Y,f0=W0/2/Math.PI;
+const it=[['q','Quality factor Q',S.Q.toFixed(2)],['','m = 1 kg, k',K.toFixed(1)+' N/m'],['','Damping c',(W0/S.Q).toFixed(2)+' N·s/m'],['','Damping ratio ζ',z.toFixed(3)],['','Settling time ≈ 2Q/ω₀',(2*S.Q/W0).toFixed(1)+' s'],['','Natural ω₀',W0.toFixed(2)+' rad/s'],['','Damped ω_d',(W0*Math.sqrt(Math.max(0,1-z*z))).toFixed(3)+' rad/s'],['','HWHM ≈ ω₀/2Q',(W0/2/S.Q).toFixed(3)+' rad/s'],['','Drive ω',(S.r*W0).toFixed(3)+' rad/s'],['','Theory amplification',th.toFixed(2)+'×'],['','Measured',S.drive?m.toFixed(2)+'×'+(S.sweep||settled()?'':' (settling…)'):'free decay'],['','Mass amplitude X',(m*S.Y/1000).toFixed(4)+' m'],['','Phase lag',ph.toFixed(0)+'°']];
+$('ro').innerHTML=it.map(i=>'<div class="'+i[0]+'">'+i[1]+'<b>'+i[2]+'</b></div>').join('');
+$('rv').textContent='ω/ω₀ = '+S.r.toFixed(2)+'  (ω = '+(S.r*W0).toFixed(2)+' rad/s)';$('qv').textContent=S.Q.toFixed(1);$('yv').textContent=S.Y.toFixed(1)+' mm (Y = '+(S.Y/1000).toFixed(4)+' m)'}
+function frame(now){const T=Math.min(.05,(now-last)/1000)*S.speed;last=now;
+if(!S.paused){const n=Math.max(1,Math.ceil(T/.004)),dt=T/n;for(let i=0;i<n;i++){if(S.sweep){S.r+=.4*W0/(S.Q*S.Q)*dt;if(S.r>=S.re){S.sweep=false;$('sw').classList.remove('on')}}step(dt)}
+if(S.sweep&&S.t>=nextT){trace.push([S.r,meas()/S.Y]);nextT=S.t+.5;$('r').value=S.r}}
+drawSim();drawTr();drawRc();drawPh();if(fr++%5==0)readout();requestAnimationFrame(frame)}
+const setR=r=>{S.r=r;$('r').value=r;S.sweep=false;S.tc=S.t;$('sw').classList.remove('on')},ch=()=>{trace=[];S.tc=S.t};
+$('r').oninput=e=>setR(+e.target.value);$('q').oninput=e=>{S.Q=Math.exp(+e.target.value);ch()};$('y').oninput=e=>{S.Y=+e.target.value;ch()};$('w').oninput=e=>{W0=+e.target.value;K=W0*W0;ch()};
+$('mode').onchange=e=>{S.base=e.target.value=='b';ch()};$('sp').onchange=e=>{S.speed=+e.target.value;trace=[]};
+$('sn').onclick=()=>setR(1);$('p5').onclick=()=>setR(.5);$('p2').onclick=()=>setR(2);
+$('sw').onclick=()=>{S.sweep=!S.sweep;$('sw').classList.toggle('on',S.sweep);if(S.sweep){S.r=Math.max(.3,1-4/S.Q);S.re=1+4/S.Q;$('r').value=S.r;trace=[];S.drive=true;S.A0=0;$('dr').textContent='Stop drive'}};
+$('dr').onclick=()=>{S.drive=!S.drive;if(S.drive){S.A0=0;S.tc=S.t}else{S.sweep=false;$('sw').classList.remove('on');S.t0=S.t;S.A0=Math.hypot(S.x,S.v/W0)}$('dr').textContent=S.drive?'Stop drive':'Resume drive'};
+$('pa').onclick=()=>{S.paused=!S.paused;$('pa').textContent=S.paused?'Play':'Pause'};
+$('rs').onclick=()=>{Object.assign(S,{x:0,v:0,phi:0,t:0,drive:true,sweep:false,A0:0,tc:0,t0:0});hist=[];trace=[];nextS=0;$('dr').textContent='Stop drive';$('sw').classList.remove('on')};
+$('vw').onclick=()=>{S.view=S.view=='t'?'p':'t';$('vw').classList.toggle('on',S.view=='p');$('vw').textContent=S.view=='p'?'Time trace':'Phase portrait'};
+$('pp').onclick=()=>{S.ph=!S.ph;$('phc').hidden=!S.ph;$('pp').classList.toggle('on',S.ph)};
+if(matchMedia('(prefers-reduced-motion:reduce)').matches){S.paused=true;$('pa').textContent='Play'}
+$('q').value=Math.log(S.Q);requestAnimationFrame(frame);
+</script></body></html>

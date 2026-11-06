@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Damped spring-mass system</title>
+<style>
+:root{
+  --bg:#fafaf8;--panel:#fff;--text:#1f2328;--muted:#6b7280;--line:#d6d9de;
+  --accent:#2563eb;--curve:#2563eb;--env:#d97706;
+  --under:#16a34a;--crit:#d97706;--over:#dc2626;--force:#dc2626;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#14161a;--panel:#1c1f24;--text:#e6e8eb;--muted:#9aa1ab;--line:#363b43;
+  --accent:#60a5fa;--curve:#60a5fa;--env:#fbbf24;
+  --under:#4ade80;--crit:#fbbf24;--over:#f87171;--force:#f87171;}}
+:root[data-theme="dark"]{
+  --bg:#14161a;--panel:#1c1f24;--text:#e6e8eb;--muted:#9aa1ab;--line:#363b43;
+  --accent:#60a5fa;--curve:#60a5fa;--env:#fbbf24;
+  --under:#4ade80;--crit:#fbbf24;--over:#f87171;--force:#f87171;}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 2px}
+.sub{color:var(--muted);margin:0 0 12px;font-size:13px}
+.grid{display:grid;grid-template-columns:minmax(260px,5fr) 7fr;gap:12px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}
+canvas{width:100%;height:auto;display:block}
+#sim{cursor:default}
+.ctrl{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:12px}
+label.s{display:block;font-size:13px;color:var(--muted)}
+label.s b{color:var(--text);font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.btns{display:flex;flex-wrap:wrap;gap:6px}
+button{font:inherit;font-size:13px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);cursor:pointer}
+button:hover{border-color:var(--accent)}
+.chk{display:flex;flex-wrap:wrap;gap:12px;font-size:13px}
+.chk label{display:flex;align-items:center;gap:5px}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-weight:600;font-size:13px;color:#fff;background:var(--muted)}
+.info{font-size:13px;color:var(--muted);margin-top:6px;font-variant-numeric:tabular-nums}
+.info b{color:var(--text)}
+.eq{font-size:13px;color:var(--muted);margin-top:8px}
+.bar{display:inline-block;width:70px;height:10px;vertical-align:middle;border:1px solid var(--line);background:linear-gradient(90deg,rgb(255,237,213),rgb(194,65,12))}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Damped spring-mass system</h1>
+  <p class="sub">Equation of motion: ẍ + 2γẋ + ω₀²x = 0 &nbsp;·&nbsp; damping ratio ζ = γ/ω₀ &nbsp;·&nbsp; critical damping at ζ = 1 (γ = ω₀). Drag the handle on the mass to set a new start.</p>
+  <div class="grid">
+    <div class="card"><canvas id="sim"></canvas></div>
+    <div><div class="card"><canvas id="plot"></canvas></div><div class="card" id="phCard" style="margin-top:12px;display:none"><canvas id="phase"></canvas></div></div>
+  </div>
+  <div class="card ctrl" style="margin-top:12px">
+    <div>
+      <label class="s">Natural frequency ω₀ = <b id="w0v"></b> rad/s
+        <input type="range" id="w0" min="1" max="6" step="0.1" value="3"></label>
+      <label class="s" style="margin-top:8px">Damping rate γ = <b id="gv"></b> s⁻¹
+        <input type="range" id="g" min="0" max="8" step="0.1" value="0.4"></label>
+      <div class="btns" style="margin-top:10px">
+        <button id="bU">Under-damped</button><button id="bC">Critical</button><button id="bO">Over-damped</button>
+        <button id="bR">Release from x = +1 m</button><button id="bP">Pause</button><select id="spd" title="Speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="1" selected>1×</option></select>
+      </div>
+    </div>
+    <div>
+      <span class="badge" id="badge"></span>
+      <div class="info" id="info"></div>
+      <div class="chk" style="margin-top:10px">
+        <label><input type="checkbox" id="cTrail"> Ghost trail</label>
+        <label><input type="checkbox" id="cEq"> Equilibrium line</label>
+        <label id="lEnv" title="Available in the under-damped regime only"><input type="checkbox" id="cEnv" checked> Envelope ±</label>
+        <label><input type="checkbox" id="cBand"> Settling band ±2 %</label>
+        <label><input type="checkbox" id="cF"> Damping force</label>
+        <label><input type="checkbox" id="cPer"> Time in periods T₀</label>
+        <label><input type="checkbox" id="cPh"> Phase portrait</label>
+        <label><input type="checkbox" id="cRestart" checked> Restart on parameter change</label>
+      </div>
+      <div class="eq">Fluid colour: low γ <i class="bar"></i> high γ. With “Restart on parameter change” off, moving a slider keeps the current position and velocity and continues with the new parameters.</div>
+    </div>
+  </div>
+</div>
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const dpr=Math.min(window.devicePixelRatio||1,2);
+function setup(c,w,h){c.width=w*dpr;c.height=h*dpr;c.dataset.w=w;c.dataset.h=h;const x=c.getContext('2d');x.setTransform(dpr,0,0,dpr,0,0);return x;}
+const sim=$('sim'),plot=$('plot'),phase=$('phase');
+const SW=340,SH=470,PW=600,PH=470,QH=340;
+const sc=setup(sim,SW,SH),pc=setup(plot,PW,PH),qc=setup(phase,PW,QH);
+
+const WIN=10,YMAX=1.1,A=1;
+let w0=3,g=0.4;
+let simT=0,t0=0,x0=A,v0=0,amp0=0,hist=[],trail=[],dragging=false,dragX=0,last=null,paused=false,speed=1,tSettle=null;
+
+function regime(){const z=g/w0;if(Math.abs(z-1)<0.02)return'crit';return z<1?'under':'over';}
+function state(t){
+  const tau=t-t0,r2=g*g-w0*w0;
+  if(Math.abs(r2)<1e-9){const e=Math.exp(-g*tau),b=v0+g*x0;
+    return{x:e*(x0+b*tau),v:e*(b-g*(x0+b*tau))};}
+  if(r2<0){const wd=Math.sqrt(-r2),e=Math.exp(-g*tau),b=(v0+g*x0)/wd,c=Math.cos(wd*tau),s=Math.sin(wd*tau);
+    const x=e*(x0*c+b*s);return{x:x,v:-g*x+e*wd*(-x0*s+b*c)};}
+  const r=Math.sqrt(r2),s1=-g+r,s2=-g-r,c1=(v0-s2*x0)/(s1-s2),c2=x0-c1,e1=Math.exp(s1*tau),e2=Math.exp(s2*tau);
+  return{x:c1*e1+c2*e2,v:c1*s1*e1+c2*s2*e2};
+}
+function envAt(t){
+  const r2=g*g-w0*w0;if(r2>=0||regime()!=='under')return NaN;
+  return amp0*Math.exp(-g*(t-t0));
+}
+function rebase(x,v){
+  x0=x;v0=v;t0=simT;
+  const r2=g*g-w0*w0;
+  if(r2<-1e-9){const wd=Math.sqrt(-r2);amp0=Math.hypot(x0,(v0+g*x0)/wd);}else amp0=0;
+}
+function cur(){return dragging?{x:dragX,v:0}:state(simT);}
+function release(){simT=0;hist=[];trail=[];dragging=false;tSettle=null;rebase(A,0);}
+
+function sliders(){
+  w0=+$('w0').value;g=+$('g').value;
+  $('w0v').textContent=w0.toFixed(1);$('gv').textContent=g.toFixed(1);
+  info();
+}
+function info(){
+  const z=g/w0,rg=regime(),b=$('badge');
+  const names={under:'Under-damped (ζ < 1)',crit:Math.abs(g-w0)<1e-9?'Critically damped (ζ = 1)':'Nearly critical (ζ ≈ 1)',over:'Over-damped (ζ > 1)'};
+  b.textContent=names[rg];const bc=css('--'+rg),hx=bc.replace('#','');b.style.background=bc;b.style.color=(0.299*parseInt(hx.slice(0,2),16)+0.587*parseInt(hx.slice(2,4),16)+0.114*parseInt(hx.slice(4,6),16))>140?'#111':'#fff';$('cEnv').disabled=rg!=='under';$('lEnv').style.opacity=rg==='under'?1:0.5;
+  let h='ζ = γ/ω₀ = <b>'+z.toFixed(2)+'</b>';
+  if(rg==='under'){const wd=Math.sqrt(w0*w0-g*g);h+=' &nbsp;·&nbsp; ω<sub>d</sub> = <b>'+wd.toFixed(2)+'</b> rad/s &nbsp;·&nbsp; period = <b>'+(2*Math.PI/wd).toFixed(2)+'</b> s';
+    h+='<br>Envelope decay time 1/γ = <b>'+(g>0?(1/g).toFixed(2)+' s':'∞')+'</b>';}
+  else if(rg==='crit'){h+='<br>Fastest return to rest without oscillation. Time scale 1/γ = <b>'+(1/g).toFixed(2)+' s</b>';}
+  else{const r=Math.sqrt(g*g-w0*w0);h+='<br>Slow time constant 1/(γ − √(γ²−ω₀²)) = <b>'+(1/(g-r)).toFixed(2)+' s</b>';}
+  $('info').innerHTML=h;
+}
+function onSlide(){const c=cur();sliders();if($('cRestart').checked)release();else rebase(c.x,c.v);}
+$('w0').oninput=onSlide;$('g').oninput=onSlide;
+function preset(w,gg){$('w0').value=w;$('g').value=gg;sliders();release();}
+$('bU').onclick=()=>preset(3,0.4);
+$('bC').onclick=()=>preset(3,3);
+$('bO').onclick=()=>preset(3,7);
+$('bP').onclick=()=>{paused=!paused;$('bP').textContent=paused?'Play':'Pause';};
+$('spd').onchange=e=>{speed=+e.target.value;};
+$('bR').onclick=release;
+
+/* ---------- pointer drag on the mass ---------- */
+const CX=170,CEIL=20,YEQ=270,PX=110,MH=50,MW=140;
+function ptr(e){const r=sim.getBoundingClientRect();return{x:(e.clientX-r.left)*SW/r.width,y:(e.clientY-r.top)*SH/r.height};}
+function onHandle(p,x){return Math.abs(p.x-CX)<34&&Math.abs(p.y-(YEQ-x*PX))<22;}
+sim.addEventListener('pointerdown',e=>{
+  const c=cur();
+  if(onHandle(ptr(e),c.x)){dragging=true;dragX=c.x;sim.setPointerCapture(e.pointerId);sim.style.cursor='grabbing';}
+});
+sim.addEventListener('pointermove',e=>{
+  if(!dragging){sim.style.cursor=onHandle(ptr(e),cur().x)?'grab':'default';return;}
+  dragX=Math.max(-A,Math.min(A,(YEQ-ptr(e).y)/PX));
+});
+function up(){if(!dragging)return;dragging=false;sim.style.cursor='grab';rebase(dragX,0);}
+sim.addEventListener('pointerup',up);sim.addEventListener('pointercancel',up);
+sim.addEventListener('touchstart',e=>{if(onHandle(ptr(e.touches[0]),cur().x))e.preventDefault();},{passive:false});
+
+/* ---------- drawing helpers ---------- */
+function arrow(c,x1,y1,x2,y2,col){
+  c.strokeStyle=col;c.fillStyle=col;c.lineWidth=2.5;
+  c.beginPath();c.moveTo(x1,y1);c.lineTo(x2,y2);c.stroke();
+  const d=Math.sign(y2-y1)||1;
+  c.beginPath();c.moveTo(x2,y2);c.lineTo(x2-5,y2-d*9);c.lineTo(x2+5,y2-d*9);c.closePath();c.fill();
+}
+function drawSim(s){
+  const c=sc,text=css('--text'),muted=css('--muted'),mass=css('--curve');
+  c.clearRect(0,0,SW,SH);
+  const cy=YEQ-s.x*PX,top=cy-MH/2;
+  // ceiling
+  c.fillStyle=muted;c.fillRect(40,CEIL-8,260,8);
+  c.strokeStyle=muted;c.lineWidth=1.5;
+  for(let i=0;i<14;i++){c.beginPath();c.moveTo(46+i*19,CEIL-8);c.lineTo(38+i*19,CEIL-16);c.stroke();}
+  // equilibrium line
+  if($('cEq').checked){c.setLineDash([6,5]);c.strokeStyle=muted;c.lineWidth=1;c.beginPath();c.moveTo(20,YEQ);c.lineTo(SW-20,YEQ);c.stroke();c.setLineDash([]);
+    c.fillStyle=muted;c.font='11px system-ui,sans-serif';c.textAlign='left';c.fillText('x = 0',22,YEQ-5);}
+  // ghost trail
+  if($('cTrail').checked){
+    for(let i=0;i<trail.length;i++){const a=(i+1)/trail.length*0.28;
+      c.strokeStyle=mass;c.globalAlpha=a;c.lineWidth=1.5;c.strokeRect(CX-MW/2,YEQ-trail[i]*PX-MH/2,MW,MH);}
+    c.globalAlpha=1;}
+  // spring
+  const sx=CX-55,n=24,y0=CEIL+10,y1=top-10;
+  c.strokeStyle=text;c.lineWidth=2;c.beginPath();c.moveTo(sx,CEIL);c.lineTo(sx,y0);
+  for(let i=1;i<=n;i++){const yy=y0+(y1-y0)*(i-0.5)/n;c.lineTo(sx+(i%2?-14:14),yy);}
+  c.lineTo(sx,y1);c.lineTo(sx,top);c.stroke();
+  // dashpot
+  const dx=CX+55,cw=32,cb=340,gk=Math.min(1,g/8);
+  c.fillStyle='rgb('+Math.round(255-61*gk)+','+Math.round(237-172*gk)+','+Math.round(213-201*gk)+')';c.fillRect(dx-cw/2,CEIL,cw,cb-CEIL);
+  c.strokeStyle=text;c.lineWidth=2;
+  c.beginPath();c.moveTo(dx-cw/2,CEIL);c.lineTo(dx-cw/2,cb);c.lineTo(dx-5,cb);c.moveTo(dx+5,cb);c.lineTo(dx+cw/2,cb);c.lineTo(dx+cw/2,CEIL);c.stroke();
+  const hy=top-30,ht=3+g*1.2;
+  c.fillStyle=text;c.fillRect(dx-cw/2+2,hy-ht/2,cw-4,ht);c.strokeStyle=css('--panel');c.lineWidth=1;c.strokeRect(dx-cw/2+2,hy-ht/2,cw-4,ht);c.strokeStyle=text;c.lineWidth=3;
+  c.lineWidth=3;c.beginPath();c.moveTo(dx,hy);c.lineTo(dx,top);c.stroke();
+  // mass
+  c.fillStyle=mass;c.beginPath();c.roundRect(CX-MW/2,top,MW,MH,6);c.fill();
+  if(dragging){c.strokeStyle=css('--text');c.lineWidth=2.5;c.stroke();}
+  c.fillStyle='rgba(255,255,255,0.88)';c.beginPath();c.roundRect(CX-22,cy-9,44,18,9);c.fill();
+  c.strokeStyle=mass;c.lineWidth=2;c.beginPath();for(const dy of[-4,0,4]){c.moveTo(CX-12,cy+dy);c.lineTo(CX+12,cy+dy);}c.stroke();
+  if($('cF').checked){const len=Math.max(-90,Math.min(90,-2*g*s.v*9)),fx=CX+MW/2+22;
+    if(Math.abs(len)>3)arrow(c,fx,cy,fx,cy-len,css('--force'));
+    c.fillStyle=css('--force');c.textAlign='left';c.font='11px system-ui,sans-serif';c.fillText('−2γẋ',CX+MW/2+8,cy-MH/2-4);}
+}
+function drawPlot(){
+  const c=pc,L=52,R=PW-14,T=18,B=PH-40,muted=css('--muted'),line=css('--line'),text=css('--text');
+  c.clearRect(0,0,PW,PH);
+  const tmax=Math.max(WIN,simT),tmin=tmax-WIN;
+  const X=t=>L+(t-tmin)/WIN*(R-L),Y=v=>T+(YMAX-v)/(2*YMAX)*(B-T);
+  c.font='11px system-ui,sans-serif';c.lineWidth=1;
+  // grid and ticks
+  c.textAlign='right';
+  for(const v of[-1,-0.5,0,0.5,1]){c.strokeStyle=v===0?muted:line;c.beginPath();c.moveTo(L,Y(v));c.lineTo(R,Y(v));c.stroke();c.fillStyle=muted;c.fillText(v.toFixed(1),L-6,Y(v)+4);}
+  c.textAlign='center';
+  const per=$('cPer').checked,P=2*Math.PI/w0;let st=2,u=1;
+  if(per){u=P;st=[0.25,0.5,1,2,5].find(q=>WIN/(P*q)<=6)||5;}
+  for(let k=Math.ceil(tmin/(st*u)-1e-9);k*st*u<=tmax+1e-6;k++){const tt=k*st*u;c.strokeStyle=line;c.beginPath();c.moveTo(X(tt),T);c.lineTo(X(tt),B);c.stroke();c.fillStyle=muted;c.fillText(String(+(k*st).toFixed(2)),X(tt),B+16);}
+  c.fillStyle=text;c.fillText(per?'time t / T₀   (T₀ = 2π/ω₀ = '+P.toFixed(2)+' s)':'time t (s)',(L+R)/2,PH-8);
+  c.save();c.translate(14,(T+B)/2);c.rotate(-Math.PI/2);c.fillText('position x (m)',0,0);c.restore();
+  c.save();c.beginPath();c.rect(L,T,R-L,B-T);c.clip();
+  if($('cBand').checked){c.fillStyle=css('--muted');c.globalAlpha=0.22;c.fillRect(L,Y(0.02),R-L,Y(-0.02)-Y(0.02));c.globalAlpha=1;
+    if(tSettle!==null&&tSettle>=tmin){c.strokeStyle=css('--under');c.lineWidth=1.5;c.setLineDash([2,3]);c.beginPath();c.moveTo(X(tSettle),T);c.lineTo(X(tSettle),B);c.stroke();c.setLineDash([]);}}
+  // envelope
+  if($('cEnv').checked){
+    c.strokeStyle=css('--env');c.lineWidth=1.5;c.setLineDash([6,4]);
+    for(const sg of[1,-1]){c.beginPath();let pen=false;
+      for(const p of hist){if(isNaN(p.e)){pen=false;continue;}
+        const xx=X(p.t),yy=Y(sg*p.e);if(!pen){c.moveTo(xx,yy);pen=true;}else c.lineTo(xx,yy);}
+      c.stroke();}
+    c.setLineDash([]);}
+  // curve
+  c.strokeStyle=css('--curve');c.lineWidth=2.5;c.beginPath();
+  hist.forEach((p,i)=>{const xx=X(p.t),yy=Y(p.x);i?c.lineTo(xx,yy):c.moveTo(xx,yy);});c.stroke();
+  const lp=hist[hist.length-1];
+  if(lp){c.fillStyle=css('--curve');c.beginPath();c.arc(X(lp.t),Y(lp.x),4.5,0,7);c.fill();}
+  c.restore();
+  if($('cBand').checked){c.fillStyle=text;c.textAlign='left';c.font='12px system-ui,sans-serif';c.fillText('Settling time (2 %): '+(tSettle===null?'not yet':per?(tSettle/P).toFixed(2)+' T₀':tSettle.toFixed(2)+' s'),L+8,T+16);}
+  c.strokeStyle=line;c.strokeRect(L,T,R-L,B-T);
+  if($('cEnv').checked&&regime()==='under'){
+    c.fillStyle=css('--env');c.textAlign='left';
+    c.font='12px system-ui,sans-serif';const base='envelope ± A e',bw=c.measureText(base).width;
+    c.font='9px system-ui,sans-serif';const sup='−γt',sw=c.measureText(sup).width;
+    const xl=R-8-bw-sw;
+    c.font='12px system-ui,sans-serif';c.fillText(base,xl,T+16);
+    c.font='9px system-ui,sans-serif';c.fillText(sup,xl+bw,T+10);
+    c.font='11px system-ui,sans-serif';}
+}
+function drawPhase(){
+  if(!$('cPh').checked)return;
+  const c=qc,T=14,B=QH-36,W=B-T,L=(PW-W)/2,R=L+W,muted=css('--muted'),gl=css('--line'),text=css('--text');
+  c.clearRect(0,0,PW,QH);
+  const X=v=>L+(v+YMAX)/(2*YMAX)*W,Y=v=>T+(YMAX-v)/(2*YMAX)*W;
+  c.font='11px system-ui,sans-serif';c.lineWidth=1;
+  for(const v of[-1,-0.5,0,0.5,1]){
+    c.strokeStyle=v===0?muted:gl;c.beginPath();c.moveTo(L,Y(v));c.lineTo(R,Y(v));c.moveTo(X(v),T);c.lineTo(X(v),B);c.stroke();
+    c.fillStyle=muted;c.textAlign='right';c.fillText(v.toFixed(1),L-6,Y(v)+4);c.textAlign='center';c.fillText(v.toFixed(1),X(v),B+14);}
+  c.fillStyle=text;c.fillText('position x (m)',(L+R)/2,QH-6);
+  c.save();c.translate(L-36,(T+B)/2);c.rotate(-Math.PI/2);c.fillText('velocity ẋ/ω₀ (m)',0,0);c.restore();
+  c.save();c.beginPath();c.rect(L,T,W,W);c.clip();
+  c.strokeStyle=css('--curve');c.lineWidth=2;c.beginPath();
+  hist.forEach((p,i)=>{const xx=X(p.x),yy=Y(p.q);i?c.lineTo(xx,yy):c.moveTo(xx,yy);});c.stroke();
+  const lp=hist[hist.length-1];
+  if(lp){c.fillStyle=css('--curve');c.beginPath();c.arc(X(lp.x),Y(lp.q),4.5,0,7);c.fill();}
+  c.restore();c.strokeStyle=gl;c.strokeRect(L,T,W,W);
+}
+function frame(ts){
+  if(last===null)last=ts;
+  const dt=Math.min(0.05,(ts-last)/1000);last=ts;
+  const adv=!dragging&&!paused;
+  if(adv)simT+=dt*speed;
+  const s=cur();
+  if(Math.abs(s.x)>0.02)tSettle=null;else if(adv&&tSettle===null)tSettle=simT;
+  if(adv)hist.push({t:simT,x:s.x,v:s.v,q:s.v/w0,e:envAt(simT)});
+  else if(hist.length){const hl=hist[hist.length-1];hl.x=s.x;hl.v=s.v;hl.q=s.v/w0;}
+  while(hist.length&&hist[0].t<simT-WIN-0.5)hist.shift();
+  if(!paused||dragging){trail.push(s.x);if(trail.length>40)trail.shift();}
+   
+  drawSim(s);drawPlot();drawPhase();
+  requestAnimationFrame(frame);
+}
+$('cTrail').onchange=()=>{trail=[];};
+$('cPh').onchange=e=>{$('phCard').style.display=e.target.checked?'block':'none';};
+window.matchMedia&&window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change',info);
+sliders();release();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

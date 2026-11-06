@@ -1,0 +1,39 @@
+/* Shared stylesheet for index.html and viewer.html */
+:root{
+  --bg:#fafaf8; --fg:#1f1f1c; --muted:#6b6b66; --line:#d9d8d2; --panel:#ffffff; --accent:#3778c8;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#161614; --fg:#ecebe6; --muted:#9a9990; --line:#3a3935; --panel:#1f1f1c; --accent:#6aa5ee; color-scheme:dark}
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+a{color:var(--accent)}
+
+/* ---------- index ---------- */
+.page{max-width:960px;margin:0 auto;padding:32px 18px 24px}
+.page h1{font-size:1.8rem;margin:0 0 6px;line-height:1.2}
+.lead{color:var(--muted);margin:0 0 8px;max-width:680px}
+.page h2{font-size:1.15rem;margin:34px 0 4px}
+.section-note{color:var(--muted);font-size:.92rem;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px}
+.card:hover{border-color:var(--muted)}
+.card h3{font-size:1rem;margin:0}
+.card h3 a{color:inherit;text-decoration:none}
+.card h3 a::after{content:"";position:absolute;inset:0} /* whole card clickable */
+.card{position:relative}
+.card p{margin:0;color:var(--muted);font-size:.92rem;flex:1}
+.card .links{display:flex;gap:14px;font-size:.88rem;position:relative;z-index:1}
+footer{max-width:960px;margin:0 auto;padding:18px;border-top:1px solid var(--line);color:var(--muted);font-size:.88rem}
+
+/* ---------- viewer ---------- */
+body.viewer{height:100vh;height:100dvh;display:flex;flex-direction:column}
+.bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:8px 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+.bar .title{font-weight:600;flex:1;min-width:140px}
+.bar a{text-decoration:none;border:1px solid var(--line);border-radius:7px;padding:4px 11px;color:var(--fg);font-size:.9rem;white-space:nowrap}
+.bar a:hover{border-color:var(--muted)}
+.bar a[aria-disabled="true"]{opacity:.35;pointer-events:none}
+.bar .nav{display:flex;gap:6px}
+iframe#frame{flex:1;width:100%;border:0;background:var(--bg)}

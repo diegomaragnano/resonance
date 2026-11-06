@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Marble in a double well</title>
+<style>
+:root{--bg:#fafaf8;--fg:#1f1f1c;--muted:#76766f;--line:#d9d9d2;--curve:#1f1f1c;--left:rgba(55,120,200,.10);--right:rgba(220,120,40,.11);--marble:#c8452d;--trace:#c8452d;--accent:#3778c8;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#171716;--fg:#ecece6;--muted:#9a9a92;--line:#34342f;--curve:#ecece6;--left:rgba(90,150,230,.16);--right:rgba(240,150,70,.16);--marble:#ff6b4a;--trace:#ff6b4a;--accent:#6aa5ee}}
+:root[data-theme="dark"]{--bg:#171716;--fg:#ecece6;--muted:#9a9a92;--line:#34342f;--curve:#ecece6;--left:rgba(90,150,230,.16);--right:rgba(240,150,70,.16);--marble:#ff6b4a;--trace:#ff6b4a;--accent:#6aa5ee}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:20px 16px 28px}
+h1{font-size:20px;font-weight:600;margin:0 0 2px}
+.sub{color:var(--muted);margin:0 0 14px;font-size:14px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:720px){.grid{grid-template-columns:1fr}}
+canvas{width:100%;height:300px;display:block;border:1px solid var(--line);border-radius:8px;touch-action:none}
+#pot{cursor:crosshair}
+.cap{color:var(--muted);font-size:12px;margin:4px 2px 0}
+.ctl{display:flex;flex-wrap:wrap;align-items:center;gap:14px;margin-top:14px}
+.ctl label{display:flex;align-items:center;gap:8px}
+input[type=range]{width:180px;accent-color:var(--accent)}
+button{font:inherit;color:var(--fg);background:transparent;border:1px solid var(--line);border-radius:6px;padding:5px 14px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+#read{margin-top:12px;font-variant-numeric:tabular-nums;min-height:1.5em}
+</style>
+</head>
+<body>
+<main>
+<h1>Marble in a double well</h1>
+<p class="sub">Overdamped dynamics ẋ = x(a − x²) = −V′(x), with V(x) = x⁴/4 − a x²/2. Click or drag on the potential to drop the marble.</p>
+<div class="grid">
+<div><canvas id="pot"></canvas><div class="cap">Potential V(x). Shading marks the basins of attraction.</div></div>
+<div><canvas id="ts"></canvas><div class="cap">Position x(t). Dashed lines: fixed points.</div></div>
+</div>
+<div class="ctl">
+<label>a <input id="a" type="range" min="-1" max="3" step="0.05" value="1"><span id="av">1.00</span></label>
+<button id="pp">Pause</button>
+<button id="rs">Reset</button>
+</div>
+<div id="read"></div>
+</main>
+<script>
+(function(){
+var XM=2.2, SPEED=1.5, TW=12;
+var a=1, x=null, t=0, hist=[], running=true, dragging=false, last=null;
+var pot=cv('pot'), ts=cv('ts');
+function cv(id){var c=document.getElementById(id);return {c:c,g:c.getContext('2d'),w:0,h:0}}
+function size(o){var r=o.c.getBoundingClientRect(),d=window.devicePixelRatio||1;o.w=r.width;o.h=r.height;o.c.width=r.width*d;o.c.height=r.height*d;o.g.setTransform(d,0,0,d,0,0)}
+function sizeAll(){size(pot);size(ts);draw()}
+window.addEventListener('resize',sizeAll);
+if(window.ResizeObserver){new ResizeObserver(sizeAll).observe(pot.c)}
+var M={l:40,r:12,t:12,b:28};
+function V(u){return u*u*u*u/4-a*u*u/2}
+function vr(){return [Math.min(-a*a/4,0)-0.3, Math.max(V(XM),0)+0.3]}
+function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function PX(o,u){return M.l+(u+XM)/(2*XM)*(o.w-M.l-M.r)}
+function PY(o,v,r){return o.h-M.b-(v-r[0])/(r[1]-r[0])*(o.h-M.t-M.b)}
+function f(u){return u*(a-u*u)}
+function step(dt){var n=Math.ceil(dt/0.01),h=dt/n;for(var i=0;i<n;i++){var k1=f(x),k2=f(x+h*k1/2),k3=f(x+h*k2/2),k4=f(x+h*k3);x+=h*(k1+2*k2+2*k3+k4)/6;t+=h;hist.push([t,x])}}
+function fixed(){return a>0?[Math.sqrt(a)]:[]}
+function txt(g,s,x0,y0,al){g.textAlign=al||'center';g.fillText(s,x0,y0)}
+function axes(o,g,fg,mu,ln){
+ g.strokeStyle=ln;g.lineWidth=1;g.beginPath();g.moveTo(M.l,o.h-M.b);g.lineTo(o.w-M.r,o.h-M.b);g.moveTo(M.l,M.t);g.lineTo(M.l,o.h-M.b);g.stroke();
+}
+function drawPot(){
+ var o=pot,g=o.g,fg=css('--fg'),mu=css('--muted'),ln=css('--line'),r=vr();
+ g.clearRect(0,0,o.w,o.h);
+ var x0=PX(o,0),top=M.t,bot=o.h-M.b;
+ if(a>0){g.fillStyle=css('--left');g.fillRect(M.l,top,x0-M.l,bot-top);g.fillStyle=css('--right');g.fillRect(x0,top,o.w-M.r-x0,bot-top)}
+ axes(o,g,fg,mu,ln);
+ g.font='11px system-ui,sans-serif';g.fillStyle=mu;g.textBaseline='top';
+ for(var k=-2;k<=2;k++){var px=PX(o,k);g.strokeStyle=ln;g.beginPath();g.moveTo(px,bot);g.lineTo(px,bot+4);g.stroke();txt(g,String(k).replace('-','−'),px,bot+7)}
+ txt(g,'x',o.w-M.r-4,bot-16,'right');g.save();g.translate(12,(top+bot)/2);g.rotate(-Math.PI/2);txt(g,'V(x)',0,-4);g.restore();
+ g.strokeStyle=css('--curve');g.lineWidth=2;g.beginPath();
+ for(var i=0;i<=300;i++){var u=-XM+2*XM*i/300,px=PX(o,u),py=PY(o,V(u),r);i?g.lineTo(px,py):g.moveTo(px,py)}
+ g.stroke();
+ // fixed points
+ var fs=fixed();g.lineWidth=1.5;g.strokeStyle=fg;
+ function dot(u,filled){g.beginPath();g.arc(PX(o,u),PY(o,V(u),r),4.5,0,7);if(filled){g.fillStyle=fg;g.fill()}else{g.fillStyle=css('--bg');g.fill();g.stroke()}}
+ if(a>0){dot(0,false);dot(fs[0],true);dot(-fs[0],true)}else dot(0,true);
+ // marble
+ if(x!==null){
+  var R=9,px=PX(o,x),py=PY(o,V(x),r),e=1e-3;
+  var s=(PY(o,V(x+e),r)-PY(o,V(x-e),r))/(PX(o,x+e)-PX(o,x-e)),n=Math.sqrt(1+s*s);
+  g.fillStyle=css('--marble');g.beginPath();g.arc(px+R*s/n,py-R/n,R,0,7);g.fill();
+ }
+}
+function drawTs(){
+ var o=ts,g=o.g,mu=css('--muted'),ln=css('--line'),fg=css('--fg');
+ g.clearRect(0,0,o.w,o.h);axes(o,g,fg,mu,ln);
+ var bot=o.h-M.b,t1=Math.max(TW,t),t0=t1-TW;
+ function TX(u){return M.l+(u-t0)/TW*(o.w-M.l-M.r)}
+ function YY(u){return PY(o,u,[-XM,XM])}
+ g.font='11px system-ui,sans-serif';g.fillStyle=mu;g.textBaseline='top';
+ for(var k=-2;k<=2;k++){txt(g,String(k).replace('-','−'),M.l-6,YY(k)-6,'right')}
+ var step_=2;for(var tk=Math.ceil(t0/step_)*step_;tk<=t1;tk+=step_){txt(g,String(tk),TX(tk),bot+7)}
+ txt(g,'t',o.w-M.r-4,bot-16,'right');g.save();g.translate(12,(M.t+bot)/2);g.rotate(-Math.PI/2);txt(g,'x',0,-4);g.restore();
+ g.setLineDash([4,4]);g.strokeStyle=ln;g.lineWidth=1;
+ var ls=[0].concat(fixed().length?[fixed()[0],-fixed()[0]]:[]);
+ ls.forEach(function(u){g.beginPath();g.moveTo(M.l,YY(u));g.lineTo(o.w-M.r,YY(u));g.stroke()});
+ g.setLineDash([]);
+ if(hist.length>1){g.strokeStyle=css('--trace');g.lineWidth=2;g.beginPath();var first=true;
+  for(var i=0;i<hist.length;i++){var h=hist[i];if(h[0]<t0)continue;var px=TX(h[0]),py=YY(h[1]);first?g.moveTo(px,py):g.lineTo(px,py);first=false}
+  g.stroke()}
+}
+function draw(){drawPot();drawTs();readout()}
+function readout(){
+ var el=document.getElementById('read'),s=Math.sqrt(Math.max(a,0)),F=function(v){return v.toFixed(3).replace('-','−')};
+ if(x===null){el.textContent='Waiting for a drop… fixed points: '+(a>0?'x = 0 (unstable), x = ±'+F(s)+' (stable)':'x = 0 (stable, the only one)');return}
+ var dest;
+ if(a<=0)dest='x = 0';else if(Math.abs(x)<1e-9)dest='staying at x = 0';else dest=(x>0?'x = +':'x = −')+F(s);
+ var rest=Math.abs(f(x))<1e-4;
+ el.textContent='t = '+t.toFixed(2)+'   x = '+F(x)+'   '+(rest?'at rest at '+dest.replace('staying at ',''):'heading to '+dest);
+}
+function frame(ts_){
+ if(last===null)last=ts_;var dt=Math.min((ts_-last)/1000,0.05);last=ts_;
+ if(x!==null&&running&&!dragging&&Math.abs(f(x))>1e-6){step(dt*SPEED);if(hist.length>20000)hist.splice(0,5000)}
+ draw();requestAnimationFrame(frame);
+}
+function place(ev){
+ var r=pot.c.getBoundingClientRect(),px=ev.clientX-r.left;
+ var u=(px-M.l)/(pot.w-M.l-M.r)*2*XM-XM;u=Math.max(-XM,Math.min(XM,u));
+ x=u;t=0;hist=[[0,x]];
+}
+pot.c.addEventListener('pointerdown',function(e){dragging=true;pot.c.setPointerCapture(e.pointerId);place(e)});
+pot.c.addEventListener('pointermove',function(e){if(dragging)place(e)});
+function up(){dragging=false}
+pot.c.addEventListener('pointerup',up);pot.c.addEventListener('pointercancel',up);
+var sl=document.getElementById('a');
+sl.addEventListener('input',function(){a=parseFloat(sl.value);document.getElementById('av').textContent=a.toFixed(2)});
+var pp=document.getElementById('pp');
+pp.addEventListener('click',function(){running=!running;pp.textContent=running?'Pause':'Play'});
+document.getElementById('rs').addEventListener('click',function(){x=null;t=0;hist=[];running=true;pp.textContent='Pause'});
+sizeAll();requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

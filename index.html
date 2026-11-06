@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Oscillations, Resonance &amp; Noise</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="page">
+  <h1>Oscillations, Resonance &amp; Noise</h1>
+  <p class="lead">Interactive animations and a notebook that follow one storyline: from a simple spring to damping, forcing and resonance, and then to a particle in a double well kicked around by noise.</p>
+
+  <h2>Part 1 · Spring-mass oscillators</h2>
+  <p class="section-note">Start here: the harmonic oscillator, step by step.</p>
+  <div class="grid">
+    <article class="card">
+      <h3><a href="viewer.html?demo=spring_mass">Free spring-mass system</a></h3>
+      <p>Unforced, undamped oscillation. Drag the mass to set the amplitude and change the frequency.</p>
+      <div class="links"><a href="animations/spring_mass.html">Open full screen ↗</a></div>
+    </article>
+    <article class="card">
+      <h3><a href="viewer.html?demo=damped_spring_mass">Damped spring-mass system</a></h3>
+      <p>Under-damped, critically damped and over-damped motion, with envelope and phase portrait.</p>
+      <div class="links"><a href="animations/damped_spring_mass.html">Open full screen ↗</a></div>
+    </article>
+    <article class="card">
+      <h3><a href="viewer.html?demo=spring_resonance">Forced undamped system</a></h3>
+      <p>A driven spring with no friction: growth at resonance and beating just off it.</p>
+      <div class="links"><a href="animations/spring_resonance.html">Open full screen ↗</a></div>
+    </article>
+    <article class="card">
+      <h3><a href="viewer.html?demo=resonance_lab">Resonance lab</a></h3>
+      <p>Driven, damped oscillator: resonance curve, quality factor Q and phase lag, with a frequency sweep.</p>
+      <div class="links"><a href="animations/resonance_lab.html">Open full screen ↗</a></div>
+    </article>
+  </div>
+
+  <h2>Part 2 · Noise and double wells</h2>
+  <p class="section-note">A marble in a double-well potential, from deterministic to noisy to resonant.</p>
+  <div class="grid">
+    <article class="card">
+      <h3><a href="viewer.html?demo=double_well">Marble in a double well</a></h3>
+      <p>Deterministic overdamped dynamics. Drop the marble anywhere and see which well it falls into.</p>
+      <div class="links"><a href="animations/double_well.html">Open full screen ↗</a></div>
+    </article>
+    <article class="card">
+      <h3><a href="viewer.html?demo=langevin_marble">Langevin marble</a></h3>
+      <p>The same marble with random noise: it hops between wells, and its histogram matches the exact stationary density.</p>
+      <div class="links"><a href="animations/langevin_marble.html">Open full screen ↗</a></div>
+    </article>
+    <article class="card">
+      <h3><a href="viewer.html?demo=stochastic_resonance">Stochastic resonance</a></h3>
+      <p>A rocking double well plus noise: an optimal noise level makes the hopping follow a weak signal.</p>
+      <div class="links"><a href="animations/stochastic_resonance.html">Open full screen ↗</a></div>
+    </article>
+  </div>
+
+  <h2>Notebook</h2>
+  <p class="section-note">The static companion to all of the above, with the code visible.</p>
+  <div class="grid">
+    <article class="card">
+      <h3><a href="notebooks/plots.html">Plots notebook</a></h3>
+      <p>Python figures for free, damped, beating, forced and resonant oscillators, Langevin dynamics, the tilted double well and stochastic resonance. Text in Italian.</p>
+      <div class="links"><a href="notebooks/plots.ipynb" download>Download .ipynb</a></div>
+    </article>
+  </div>
+</main>
+<footer>
+  A detailed guide to every control is in the
+  <a href="https://github.com/USERNAME/REPO#readme">README</a> (English and Italian).
+</footer>
+</body>
+</html>

@@ -6,7 +6,7 @@
 
 A small collection of interactive animations and one Jupyter notebook about oscillators: from a free spring, through damping, forcing and resonance, to a particle in a double-well potential driven by noise (stochastic resonance). Everything is plain HTML, with no installation and no build step.
 
-**Live site:** `https://USERNAME.github.io/REPO/`
+**Live site:** `https://diegomaragnano.github.io/resonance/`
 
 ## Project structure
 
@@ -142,7 +142,7 @@ Rocking double well with noise (Benzi, Sutera & Vulpiani, 1981): dx = [x(a − x
 
 Una piccola raccolta di animazioni interattive e di un notebook Jupyter sugli oscillatori: dalla molla libera, passando per smorzamento, forzante e risonanza, fino a una particella in un potenziale a doppia buca guidata dal rumore (risonanza stocastica). Tutto è semplice HTML, senza installazioni né fasi di compilazione.
 
-**Sito online:** `https://USERNAME.github.io/REPO/`
+**Sito online:** `https://diegomaragnano.github.io/resonance/`
 
 ## Struttura del progetto
 

@@ -6,7 +6,7 @@
 
 A small collection of interactive animations and one Jupyter notebook about oscillations and resonance: from a free spring, through damping, forcing and resonance, to a particle in a double-well potential driven by noise (stochastic resonance). Everything is plain HTML, with no installation and no build step.
 
-**Live site:** `https://diegomaragnano.github.io/resonance/`
+**Live site:** [https://diegomaragnano.github.io/resonance/](https://diegomaragnano.github.io/resonance/)
 
 ## Project structure
 
@@ -142,7 +142,7 @@ Rocking double well with noise (Benzi, Sutera & Vulpiani, 1981): $dx = [x(a − 
 
 Una piccola raccolta di animazioni interattive e di un notebook Jupyter sugli oscillatori: dal sistema massa-molla libero, passando per smorzamento, forzante e risonanza, fino a una biglia in un potenziale a doppia buca guidata dal rumore (risonanza stocastica). Solo HTML, niente installazioni o fasi di compilazione.
 
-**Sito online:** `https://diegomaragnano.github.io/resonance/`
+**Sito online:** [https://diegomaragnano.github.io/resonance/](https://diegomaragnano.github.io/resonance/)
 
 ## Struttura del progetto
 
@@ -202,12 +202,12 @@ Equazione $\ddot{x} + 2\gamma \dot{x} + \omega_0^2 x = 0$, rapporto di smorzamen
   - *Ghost trail*: lascia copie sbiadite della massa.
   - *Equilibrium line*: segna x = 0.
   - *Envelope ±*: inviluppo del decadimento (disponibile solo nel regime sottosmorzato).
-  - *Settling band $\om 2 \%$*: fascia entro cui il moto si considera assestato.
+  - *Settling band $\pm 2 \%$*: fascia entro cui il moto si considera assestato.
   - *Damping force*: mostra la forza dello smorzatore.
-  - *Time in periods $T_0$*: asse del tempo in unità del periodo naturale.
+  - *Time in periods* $T_0$: asse del tempo in unità del periodo naturale.
   - *Phase portrait*: mostra velocità in funzione della posizione.
   - *Restart on parameter change*: se attiva, muovere uno slider fa ripartire il moto; se disattiva, posizione e velocità attuali vengono mantenute e il moto prosegue con i nuovi parametri.
-- Il colore del fluido nello smorzatore indica l'intensità dello smorzamento (da $\gamma$ basso a γ alto).
+- Il colore del fluido nello smorzatore indica l'intensità dello smorzamento (da $\gamma$ basso a $\gamma$ alto).
 
 ### 3. Sistema forzato non smorzato (`spring_resonance.html`)
 Equazione $m \ddot{x} + k x = F_0 cos(\omega t)$, con $m$ = 1 kg, $k$ = 4 N/m (quindi $ω_0$ = 2 rad/s), partendo da fermo.

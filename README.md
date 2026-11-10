@@ -23,7 +23,7 @@ A small collection of interactive animations and one Jupyter notebook about osci
 ```
 
 - **`index.html`** lists everything. Clicking a card opens the animation in the viewer; "Open full screen ↗" opens the raw file with no bar.
-- **`viewer.html`** shows an animation under a bar with *Index*, the title, *Previous / Next* (following the storyline below) and *Open in new tab*.
+- **`viewer.html?demo=<nome>`** shows an animation under a bar with *Index*, the title, *Previous / Next* (following the storyline below) and *Open in new tab*.
 - Each animation is a single self-contained file: it works offline and follows the light/dark mode of your device.
 
 ## The modules
@@ -66,7 +66,7 @@ Equation $\ddot{x} + 2\gamma \dot{x} + \omega_0^2 x = 0$, damping ratio $\zeta =
   - *Ghost trail*: leaves fading copies of the mass.
   - *Equilibrium line*: marks x = 0.
   - *Envelope* $\pm$: decay envelope (available only in the under-damped regime).
-  - *Settling band* $\pm 2 \%$: band within which the motion is considered settled.
+  - *Settling band* $\pm 2$%: band within which the motion is considered settled.
   - *Damping force*: shows the force from the damper.
   - *Time in periods* $T_0$: time axis in units of the natural period.
   - *Phase portrait*: shows velocity against position.
@@ -182,9 +182,9 @@ La maggior parte delle animazioni ha una scena animata (molla o potenziale) e un
 ### 1. Sistema massa-molla libero (`spring_mass.html`)
 Moto libero e non smorzato.
 - **Trascina la massa** in su o in giù: imposta l'ampiezza x₀.
-- **Set $f_0$ directly / Set $k$ and $m$**: sceglie come definire la frequenza naturale.
-  - *Slider $f_0$* (0.25–2 Hz): imposta direttamente la frequenza.
-  - *Slider $m$* (0.5–2 kg) e *slider $k$* (10–75 N/m): impostano massa e costante elastica; la frequenza ne deriva.
+- **Set** $f_0$ **directly / Set** $k$ **and** $m$: sceglie come definire la frequenza naturale.
+  - *Slider* $f_0$ (0.25–2 Hz): imposta direttamente la frequenza.
+  - *Slider* $m$ (0.5–2 kg) e *slider* $k$ (10–75 N/m): impostano massa e costante elastica; la frequenza ne deriva.
 - **Pause / Reset**: ferma e riprende il moto; ripristina lo stato iniziale.
 - **Time in s / Time in periods**: unità dell'asse temporale del grafico.
 - **Energy bars**: mostra un pannello con energia cinetica e potenziale.
@@ -194,15 +194,15 @@ Moto libero e non smorzato.
 ### 2. Sistema massa-molla smorzato (`damped_spring_mass.html`)
 Equazione $\ddot{x} + 2\gamma \dot{x} + \omega_0^2 x = 0$, rapporto di smorzamento $\zeta = \gamma/\omega_0$.
 - **Trascina la maniglia sulla massa** per scegliere un nuovo punto di partenza.
-- **Slider $\omega_0$** (1–6 rad/s): frequenza naturale. **Slider $\gamma$** (0–8 s⁻¹): coefficiente di smorzamento.
+- **Slider** $\omega_0$ (1–6 rad/s): frequenza naturale. **Slider** $\gamma$ (0–8 s⁻¹): coefficiente di smorzamento.
 - **Under-damped / Critical / Over-damped**: preset che impostano $\gamma$ a un valore tipico per ciascun regime. Un'etichetta e un riquadro informativo mostrano il regime e le grandezze correnti.
-- **Release from $x$ = +1 m**: fa ripartire il moto da uno spostamento iniziale fissato.
+- **Release from** $x = +1$ m: fa ripartire il moto da uno spostamento iniziale fissato.
 - **Pause** e menu della **velocità** (0,25×, 0,5×, 1×).
 - Caselle di controllo:
   - *Ghost trail*: lascia copie sbiadite della massa.
   - *Equilibrium line*: segna x = 0.
   - *Envelope ±*: inviluppo del decadimento (disponibile solo nel regime sottosmorzato).
-  - *Settling band $\pm 2 \%$*: fascia entro cui il moto si considera assestato.
+  - *Settling band* $\pm 2$%: fascia entro cui il moto si considera assestato.
   - *Damping force*: mostra la forza dello smorzatore.
   - *Time in periods* $T_0$: asse del tempo in unità del periodo naturale.
   - *Phase portrait*: mostra velocità in funzione della posizione.
@@ -213,26 +213,26 @@ Equazione $\ddot{x} + 2\gamma \dot{x} + \omega_0^2 x = 0$, rapporto di smorzamen
 Equazione $m \ddot{x} + k x = F_0 cos(\omega t)$, con $m$ = 1 kg, $k$ = 4 N/m (quindi $ω_0$ = 2 rad/s), partendo da fermo.
 - **Pause/Play** e **Restart**.
 - Menu **Speed**: 1×, 2×, 4×.
-- **Slider $\omega / \omega_0$** (0.5–1.5): rapporto tra frequenza forzante e frequenza naturale. Vicino a 1 si osserva la risonanza (crescita continua); poco distante da 1, i battimenti.
-- **Slider $F_0$** (0.2–1.2 N): ampiezza della forza.
+- **Slider** $\omega / \omega_0$ (0.5–1.5): rapporto tra frequenza forzante e frequenza naturale. Vicino a 1 si osserva la risonanza (crescita continua); poco distante da 1, i battimenti.
+- **Slider** $F_0$ (0.2–1.2 N): ampiezza della forza.
 - Caselle di controllo:
   - *Envelope*: disegna l'inviluppo dell'ampiezza.
-  - *Support motion $y(t)$*: mostra come si muove il supporto (esagerato nella scena).
-  - *Phase portrait $x–\dot{x}$*: mostra velocità in funzione della posizione.
+  - *Support motion* $y(t)$: mostra come si muove il supporto (esagerato nella scena).
+  - *Phase portrait* $x–\dot{x}$: mostra velocità in funzione della posizione.
   - *Auto-restart*: fa ripartire automaticamente la simulazione al termine.
 - Una riga di stato descrive ciò che sta accadendo.
 
 ### 4. Resonance lab (`resonance_lab.html`)
 Oscillatore forzato e smorzato con più viste collegate: la molla animata, la traccia della posizione, la curva di risonanza e un pannello di valori.
 - **Slider Drive frequency**: rapporto $\omega / \omega_0$ (0.2–3).
-- **Slider Quality factor $Q$**: imposta lo smorzamento ($Q$ alto = smorzamento debole). Il colore del fluido va dall'ambra (smorzamento forte) al blu (smorzamento debole).
+- **Slider Quality factor** $Q$: imposta lo smorzamento ($Q$ alto = smorzamento debole). Il colore del fluido va dall'ambra (smorzamento forte) al blu (smorzamento debole).
 - **Slider Drive amplitude**.
 - **Drive type**: *Moving support* (supporto mobile) oppure *Force on the mass* (forza sulla massa).
 - **Slider Stiffness**: frequenza naturale $\omega_0 = \sqrt{k/m}$, con $m$ = 1.
 - Menu **Speed**: da 0,25× a 16×.
 - Pulsanti:
-  - *Snap to $\omega = \omega_0$*: porta esattamente a risonanza.
-  - *$\omega / \omega_0$ = 0.5* e *$\omega / \omega_0$ = 2*: portano a quei rapporti.
+  - *Snap to* $\omega = \omega_0$: porta esattamente a risonanza.
+  - $\omega / \omega_0$ = 0.5 e $\omega / \omega_0$ = 2: portano a quei rapporti.
   - *Sweep through resonance*: fa scorrere automaticamente la frequenza forzante attraverso la risonanza.
   - *Stop drive*: spegne la forzante e il sistema decade liberamente.
   - *Pause*, *Reset*.
@@ -243,23 +243,23 @@ Oscillatore forzato e smorzato con più viste collegate: la molla animata, la tr
 ### 5. Pallina in una doppia buca (`double_well.html`)
 Dinamica $\dot{x} = x(a − x^2) = −V'(x)$, con $V(x) = x^4/4 − a x^2/2$.
 - **Clicca o trascina sul potenziale** per lasciar cadere la pallina in quella posizione.
-- **Slider $a$** (da −1 a 3): cambia la forma del potenziale. Per $a \le 0$ c'è una sola buca; per $a > 0$ compaiono due buche e il punto centrale diventa instabile.
+- **Slider** $a$ (da −1 a 3): cambia la forma del potenziale. Per $a \le 0$ c'è una sola buca; per $a > 0$ compaiono due buche e il punto centrale diventa instabile.
 - **Pause/Play** e **Reset**.
 - L'ombreggiatura segna i bacini di attrazione; il secondo grafico mostra $x(t)$ con linee tratteggiate nei punti fissi. Un'indicazione riporta tempo, posizione e destinazione correnti.
 
 ### 6. Pallina di Langevin (`langevin_marble.html`)
 La stessa pallina con il rumore: $dx = x(a − x^2) dt + \varepsilon dW$.
-- **Slider $a$** (da −2 a 3): forma del potenziale. **Slider $\varepsilon$** (0.05–1.5): intensità del rumore. **Slider speed** (1–40).
+- **Slider** $a$ (da −2 a 3): forma del potenziale. **Slider** $\varepsilon$ (0.05–1.5): intensità del rumore. **Slider speed** (1–40).
 - **Pause/Resume**, **Reset marble**, **Clear histogram**.
 - **Trail**: mostra il percorso recente della pallina.
-- **Colour bands in $x(t)$**: colora il grafico della traiettoria a seconda della buca in cui si trova la pallina.
+- **Colour bands in** $x(t)$: colora il grafico della traiettoria a seconda della buca in cui si trova la pallina.
 - La scena ha due lampadine sotto le buche: è accesa quella della buca occupata dalla pallina.
 - Grafici: il potenziale con la pallina, la traiettoria $x(t)$ in tempo reale (ultime 100 unità di tempo) e un istogramma del tempo trascorso dalla pallina in ciascuna posizione, confrontato con la densità stazionaria esatta (curva rossa). Il contatore mostra tempo, posizione e numero di salti tra le buche.
 
 ### 7. Risonanza stocastica (`stochastic_resonance.html`)
 Doppia buca oscillante con rumore (Benzi, Sutera e Vulpiani, 1981): $dx = [x(a − x^2) + A cos \Omega t] dt + ε dW$.
-- Slider: **$a$** (forma delle buche), **$A$** (ampiezza della forzante), **$\Omega$** (frequenza della forzante), **$\varepsilon$** (rumore), **speed** e **tilt display** (cambia solo quanto viene disegnata l'inclinazione, non la dinamica).
-- **Pause**, **Reset** e **Colour bands in $x(t)$**.
+- Slider: $a$ (forma delle buche), $A$ (ampiezza della forzante), $\Omega$ (frequenza della forzante), $\varepsilon$ (rumore), **speed** e **tilt display** (cambia solo quanto viene disegnata l'inclinazione, non la dinamica).
+- **Pause**, **Reset** e **Colour bands in** $x(t)$.
 - **Preset**: *too little noise* (troppo poco rumore), *resonance* e *too much noise* (troppo rumore) impostano $\varepsilon$ rispetto al valore ottimale.
 - Il pannello informativo mostra: la soglia di forzante $A_c$ (sotto di essa la pallina non può attraversare senza rumore), il tempo medio di uscita confrontato con metà periodo della forzante, la finestra di risonanza dell'articolo per $\varepsilon$, il livello ottimale di rumore e la risposta lock-in (quanta parte dell'ampiezza ideale di commutazione la pallina raggiunge), con una barra.
 - Grafici: il potenziale inclinato con la pallina e un indicatore dorato della fase della forzante; $x(t)$ sugli ultimi tre periodi con il segnale come linea verde tratteggiata; un istogramma dei tempi di permanenza tra i salti, in unità di mezzo periodo.

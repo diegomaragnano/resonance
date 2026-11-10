@@ -23,7 +23,7 @@ A small collection of interactive animations and one Jupyter notebook about osci
 ```
 
 - **`index.html`** lists everything. Clicking a card opens the animation in the viewer; "Open full screen ↗" opens the raw file with no bar.
-- **`viewer.html?demo=<name>`** shows an animation under a bar with *Index*, the title, *Previous / Next* (following the storyline below) and *Open in new tab*.
+- **`viewer.html`** shows an animation under a bar with *Index*, the title, *Previous / Next* (following the storyline below) and *Open in new tab*.
 - Each animation is a single self-contained file: it works offline and follows the light/dark mode of your device.
 
 ## The modules
@@ -47,8 +47,8 @@ Most animations have an animated scene (spring or potential) and one or more plo
 Unforced and undamped motion.
 - **Drag the mass** up or down: sets the amplitude $x_0$.
 - **Set $f_0$ directly / Set $k$ and $m$**: choose how the natural frequency is defined.
-  - *$f_0$ slider* (0.25–2 Hz): sets the frequency directly.
-  - *$m$ slider* (0.5–2 kg) and *$k$ slider* (10–75 N/m): set mass and spring constant; the frequency follows from them.
+  - $f_0$ *slider* (0.25–2 Hz): sets the frequency directly.
+  - $m$ *slider* (0.5–2 kg) and $k$ *slider* (10–75 N/m): set mass and spring constant; the frequency follows from them.
 - **Pause / Reset**: stop and resume the motion; restore the initial state.
 - **Time in s / Time in periods**: unit of the time axis of the plot.
 - **Energy bars**: shows a panel with kinetic and potential energy.
@@ -58,17 +58,17 @@ Unforced and undamped motion.
 ### 2. Damped spring-mass system (`damped_spring_mass.html`)
 Equation $\ddot{x} + 2\gamma \dot{x} + \omega_0^2 x = 0$, damping ratio $\zeta = \gamma/\omega_0$.
 - **Drag the handle on the mass** to choose a new starting point.
-- **$\omega_0$ slider** (1–6 rad/s): natural frequency. **$\gamma$ slider** (0–8 s⁻¹): damping rate.
+- **$\omega_0$ slider** (1–6 rad/s): natural frequency. $\gamma$ **slider** (0–8 s⁻¹): damping rate.
 - **Under-damped / Critical / Over-damped**: presets that set $\gamma$ to a typical value for each regime. A badge and an information box show the current regime, and quantities that are relevant for that regime.
-- **Release from $x$ = +1 m**: restarts the motion from a fixed initial displacement.
+- **Release from** $x = +1$ m: restarts the motion from a fixed initial displacement.
 - **Pause** and **speed** menu (0.25×, 0.5×, 1×).
 - Checkboxes:
   - *Ghost trail*: leaves fading copies of the mass.
   - *Equilibrium line*: marks x = 0.
-  - *Envelope ±*: decay envelope (available only in the under-damped regime).
-  - *Settling band $\pm 2 \%$*: band within which the motion is considered settled.
+  - *Envelope* $\pm$: decay envelope (available only in the under-damped regime).
+  - *Settling band* $\pm 2 \%$: band within which the motion is considered settled.
   - *Damping force*: shows the force from the damper.
-  - *Time in periods $T_0$*: time axis in units of the natural period.
+  - *Time in periods* $T_0$: time axis in units of the natural period.
   - *Phase portrait*: shows velocity against position.
   - *Restart on parameter change*: if on, moving a slider restarts the motion; if off, the current position and velocity are kept and the motion continues with the new parameters.
 - The colour of the fluid in the damper indicates the damping strength (low to high $\gamma$).
@@ -78,11 +78,11 @@ Equation $m \ddot{x} + k x = F_0 cos(\omega t)$, with $m$ = 1 kg, $k$ = 4 N/m (s
 - **Pause/Play** and **Restart**.
 - **Speed** menu: 1×, 2×, 4×.
 - **$\omega/\omega_0$ slider** (0.5–1.5): ratio of the driving frequency to the natural one. Near 1 you see resonance (steady growth); slightly away from 1, beating.
-- **$F_0$ slider** (0.2–1.2 N): amplitude of the driving force.
+- $F_0$ **slider** (0.2–1.2 N): amplitude of the driving force.
 - Checkboxes:
   - *Envelope*: draws the amplitude envelope.
-  - *Support motion $y(t)$*: shows how the support moves (exaggerated in the scene).
-  - *Phase portrait $x–\dot{x}$*: shows velocity against position.
+  - *Support motion* $y(t)$: shows how the support moves (exaggerated in the scene).
+  - *Phase portrait* $x–\dot{x}$: shows velocity against position.
   - *Auto-restart*: restarts the run automatically after it ends.
 - A status line describes what is happening.
 
@@ -95,8 +95,8 @@ Driven, damped oscillator with several linked views: the animated spring, the po
 - **Stiffness slider**: natural frequency $\omega_0 = \sqrt{k/m}$, with $m$ = 1.
 - **Speed** menu: 0.25× to 16×.
 - Buttons:
-  - *Snap to $\omega = \omega_0$*: jumps exactly to resonance.
-  - *$\omega / \omega_0$ = 0.5* and *$\omega / \omega_0$ = 2*: jump to those ratios.
+  - *Snap to* $\omega = \omega_0$: jumps exactly to resonance.
+  - $\omega / \omega_0$ = 0.5 and $\omega / \omega_0$ = 2: jump to those ratios.
   - *Sweep through resonance*: automatically sweeps the drive frequency across the resonance.
   - *Stop drive*: switches the driving off so the system decays freely.
   - *Pause*, *Reset*.
@@ -113,12 +113,12 @@ Dynamics $\dot{x} = x(a − x^2) = −V'(x)$, with $V(x) = x^4/4 − a x^2/2$.
 
 ### 6. Langevin marble (`langevin_marble.html`)
 The same marble with noise: $dx = x(a − x^2) dt + \varepsilon dW$.
-- **$a$ slider** (−2 to 3): shape of the potential. **$\varepsilon$ slider** (0.05–1.5): noise strength. **Speed slider** (1–40).
+- $a$ **slider** (−2 to 3): shape of the potential. $\varepsilon$ **slider** (0.05–1.5): noise strength. **Speed slider** (1–40).
 - **Pause/Resume**, **Reset marble**, **Clear histogram**.
 - **Trail**: shows the recent path of the marble.
 - **Colour bands in $x(t)$**: shades the trajectory plot according to which well the marble is in.
 - The scene has two bulbs under the wells: the lit one is the well the marble currently occupies.
-- Plots: the potential with the marble, the live trajectory x(t) (last 100 time units), and a histogram of where the marble has spent its time, compared with the exact stationary density (red curve). The counter shows time, position and number of jumps between wells.
+- Plots: the potential with the marble, the live trajectory $x(t)$ (last 100 time units), and a histogram of where the marble has spent its time, compared with the exact stationary density (red curve). The counter shows time, position and number of jumps between wells.
 
 ### 7. Stochastic resonance (`stochastic_resonance.html`)
 Rocking double well with noise (Benzi, Sutera & Vulpiani, 1981): $dx = [x(a − x^2) + A \cos \Omega t] dt + \varepsilon dW$.

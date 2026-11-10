@@ -40,8 +40,9 @@ iframe#frame{flex:1;width:100%;border:0;background:var(--bg)}
 
 /* guides block */
 .readme-note{margin:14px 0 10px;color:var(--fg)}
-.guides{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px}
-.btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;font-weight:600;font-size:.95rem;padding:8px 18px;border-radius:8px}
+.guides{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.guide{display:flex;flex-wrap:wrap;align-items:center;gap:6px 16px}
+.btn{display:inline-block;min-width:150px;text-align:center;background:var(--accent);color:#fff;text-decoration:none;font-weight:600;font-size:.95rem;padding:8px 18px;border-radius:8px}
 .btn:hover{filter:brightness(1.1)}
 .dl{font-size:.9rem}
 .sep{border:0;border-top:1px solid var(--line);margin:26px 0 0}

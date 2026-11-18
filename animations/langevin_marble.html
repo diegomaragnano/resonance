@@ -231,7 +231,7 @@ button:hover{border-color:var(--muted)}
   $('s').addEventListener('input',e=>{ speed=+e.target.value; $('sV').textContent=speed; });
   $('trail').addEventListener('change',e=>{ showTrail=e.target.checked; });
   $('bands').addEventListener('change',e=>{ showBands=e.target.checked; });
-  $('pause').addEventListener('click',e=>{ paused=!paused; e.target.textContent=paused?'Resume':'Pause'; });
+  $('pause').addEventListener('click',e=>{ paused=!paused; e.target.textContent=paused?'Play':'Pause'; });
   $('reset').addEventListener('click',resetMarble);
   $('clear').addEventListener('click',()=>{ clearHist(); jumps=0; });
 

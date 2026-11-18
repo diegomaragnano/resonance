@@ -187,7 +187,7 @@ $('e').oninput=e=>{eps=+e.target.value;labels();resetStats();};
 $('s').oninput=e=>{speed=+e.target.value;labels();};
 $('k').oninput=e=>{tiltK=+e.target.value;labels();};
 $('bands').onchange=e=>{showBands=e.target.checked;};
-$('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'Resume':'Pause';};
+$('pause').onclick=e=>{paused=!paused;e.target.textContent=paused?'Play':'Pause';};
 $('reset').onclick=()=>resetAll();
 function epsStar(){const L=Math.log(Math.SQRT2*a/(Math.PI*Om));return L>0?a/Math.sqrt(2*L):0.5*a;}
 $('p1').onclick=()=>setEps(0.6*epsStar());
